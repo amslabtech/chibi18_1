@@ -109,7 +109,7 @@ find_package(catkin REQUIRED COMPONENTS
 ## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
   INCLUDE_DIRS include
-  LIBRARIES chibi_challenge map
+  LIBRARIES chibi_challenge
 #  CATKIN_DEPENDS roscpp rospy std_msgs
 #  DEPENDS system_lib
 )
@@ -130,11 +130,6 @@ include_directories(
 #   src/${PROJECT_NAME}/chibi_challenge.cpp
 # )
 
-add_library(map
-  src/chibi_challenge/map/map.cpp
-)
-target_link_libraries(map)
-
 ## Add cmake target dependencies of the library
 ## as an example, code may need to be generated before libraries
 ## either from message generation or dynamic reconfigure
@@ -152,7 +147,6 @@ add_executable(mapping_test src/mapping_test.cpp)
 add_executable(frame_tf_br src/frame_tf_br.cpp)
 add_executable(tf_vel src/tf_vel.cpp)
 add_executable(sending_goal src/sending_goal.cpp)
-add_executable(localization src/localization.cpp)
 
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
@@ -176,7 +170,6 @@ target_link_libraries(mapping_test ${catkin_LIBRARIES})
 target_link_libraries(frame_tf_br ${catkin_LIBRARIES})
 target_link_libraries(tf_vel ${catkin_LIBRARIES})
 target_link_libraries(sending_goal ${catkin_LIBRARIES})
-target_link_libraries(localization map ${catkin_LIBRARIES} )
 
 #############
 ## Install ##
