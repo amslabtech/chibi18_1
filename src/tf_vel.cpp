@@ -1,8 +1,6 @@
 #include "ros/ros.h"
 #include <roomba_500driver_meiji/RoombaCtrl.h>
 #include <geometry_msgs/Twist.h>
-#include <iostream>
-using namespace std;
 
 geometry_msgs::Twist velocity;
 
