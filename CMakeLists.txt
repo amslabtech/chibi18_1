@@ -147,6 +147,7 @@ add_executable(mapping_test src/mapping_test.cpp)
 add_executable(frame_tf_br src/frame_tf_br.cpp)
 add_executable(tf_vel src/tf_vel.cpp)
 add_executable(sending_goal src/sending_goal.cpp)
+add_executable(mcl src/mcl.cpp)
 
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
@@ -170,6 +171,8 @@ target_link_libraries(mapping_test ${catkin_LIBRARIES})
 target_link_libraries(frame_tf_br ${catkin_LIBRARIES})
 target_link_libraries(tf_vel ${catkin_LIBRARIES})
 target_link_libraries(sending_goal ${catkin_LIBRARIES})
+target_link_libraries(mcl ${catkin_LIBRARIES})
+
 
 #############
 ## Install ##
