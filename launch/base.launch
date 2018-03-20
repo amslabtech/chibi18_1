@@ -1,6 +1,6 @@
 <launch>
 
-  <node pkg="roomba_500driver_meiji" name="roomba_test" type="main500"/>
+  <node pkg="roomba_500driver_meiji" name="roomba_driver" type="main500"/>
   <node pkg="hokuyo_node" name="laser_scan" type="hokuyo_node"/>
   <node pkg="chibi_challenge" name="tf_br" type="frame_tf_br"/>
   <node pkg="chibi_challenge" name="tf_vel" type="tf_vel"/>

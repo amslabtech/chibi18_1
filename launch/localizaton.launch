@@ -1,6 +1,28 @@
 <launch>
-  <arg name="map_file" default="$(find chibi_challenge)/bagfiles/map_d1.yaml"/>
+  <arg name="map_file" default="$(find chibi_challenge)/mapdata/map_d1.yaml"/>
   <node pkg="map_server" name="map_server" type="map_server" args="$(arg map_file)" output="screen"/>
+  
+  <arg name="PARTICLE_N" default="500"/>
+  <arg name="ALPHA_1" default="0.2"/>
+  <arg name="ALPHA_2" default="0.2"/>
+  <arg name="ALPHA_3" default="0.2"/>
+  <arg name="ALPHA_4" default="0.2"/>
+  <arg name="MAX_RANGE" default="20"/>
+  <arg name="Z_HIT" default="0.5"/>
+  <arg name="Z_RANDOM" default="0.5"/>
+  <arg name="Z_MAX" default="0.05"/>
+  <arg name="SIGMA_HIT" default="0.2"/>
+  <node pkg="chibi_challenge" name="mcl" type="mcl" output="screen">
+    <param name="N" value="$(arg PARTICLE_N)"/>
+    <param name="alpha1" value="$(arg ALPHA_1)"/>
+    <param name="alpha2" value="$(arg ALPHA_2)"/>
+    <param name="alpha3" value="$(arg ALPHA_3)"/>
+    <param name="alpha4" value="$(arg ALPHA_4)"/>
+    <param name="max_range" value="$(arg MAX_RANGE)"/>
+    <param name="z_hit" value="$(arg Z_HIT)"/>
+    <param name="z_random" value="$(arg Z_RANDOM)"/>
+    <param name="z_max" value="$(arg Z_MAX)"/>
+    <param name="sigma_hit" value="$(arg SIGMA_HIT)"/>
+  </node>
 
-  <node pkg="chibi_challenge" name="localization" type="localization" output="screen"/>
 </launch>
