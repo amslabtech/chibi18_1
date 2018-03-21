@@ -25,7 +25,7 @@ public:
   //現在と１周期前のオドメトリ情報が引数
   void update_motion(geometry_msgs::PoseStamped,geometry_msgs::PoseStamped);
   //レーザデータとマップ情報が引数
-  double update_measurment(sensor_msgs::LaserScan&,nav_msgs::OccupancyGrid&);
+  void update_measurment(sensor_msgs::LaserScan&,nav_msgs::OccupancyGrid&);
 
   geometry_msgs::PoseStamped pose;
   double weight;
@@ -125,6 +125,24 @@ int main(int argc,char** argv)
         particles[i].update_motion(current_pose,previous_pose);
         particles[i].update_measurment(laser_data,map_data);
       }
+
+      //resampling
+      std::vector<Particle> new_particles;
+      int max_index = 0;
+      for(int i=0;i<N;i++){
+        if(particles[i].weight > particles[max_index].weight) max_index = i;
+      }
+      double beta = 0.0;
+      int index = rand1(mt) * N;
+      for(int i=0;i<N;i++){
+        beta += rand1(mt) * 2 * particles[max_index].weight;
+        while(beta > particles[index].weight){
+          beta -= particles[index].weight;
+          index = (1 + index) % N;
+        }
+        new_particles.push_back(particles[index]);
+      }
+      particles = new_particles;
       for(int i = 0;i<N;i++){
         poses.poses[i] = particles[i].pose.pose;
       }
@@ -318,10 +336,10 @@ void Particle::update_motion(geometry_msgs::PoseStamped current,
   pose.pose.position.y += delta_trans_hat * sin(pose.pose.orientation.z + delta_rot1_hat);
   pose.pose.orientation.z += delta_rot1_hat + delta_rot2_hat;
 }
-double Particle::update_measurment(sensor_msgs::LaserScan& scan,
+void Particle::update_measurment(sensor_msgs::LaserScan& scan,
                                   nav_msgs::OccupancyGrid& map)
 {
-  double q = 1;
+  weight = 1;
   double xz,yz,dist;
   for(int i = 0;i<sensor_data;i++){
     double theta = (2*i/sensor_data-1)*(M_PI/2.0);
@@ -329,8 +347,7 @@ double Particle::update_measurment(sensor_msgs::LaserScan& scan,
       xz = pose.pose.position.x + scan.ranges[i]*cos(pose.pose.orientation.z+theta);
       yz = pose.pose.position.y + scan.ranges[i]*sin(pose.pose.orientation.z+theta);
       dist = map_calc_range(xz,yz,theta);
-      q *= z_hit *prob_normal_distribution(dist,sigma_hit) + (z_random/z_max);
+      weight *= z_hit *prob_normal_distribution(dist,sigma_hit) + (z_random/z_max);
     }
   }
-  return q;
 }
