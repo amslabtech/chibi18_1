@@ -176,6 +176,95 @@ static double prob_normal_distribution(double a,double bb)
   return result;
 }
 
+double map_calc_range(double ox, double oy, double oa)
+{
+  // Bresenham raytracing
+  int x0,x1,y0,y1;
+  int x,y;
+  int xstep, ystep;
+  char steep;
+  int tmp;
+  int deltax, deltay, error, deltaerr;
+
+  x0 = floor((ox - map_data.info.origin.position.x) / map_data.info.resolution + 0.5) + map_data.info.width / 2;
+  y0 = floor((oy - map_data.info.origin.position.x) / map_data.info.resolution + 0.5) + map_data.info.width / 2;
+
+  x1 = floor((ox + max_range * cos(oa) - map_data.info.origin.position.x) / map_data.info.resolution + 0.5) + map_data.info.width / 2;
+  y1 = floor((oy + max_range * sin(oa) - map_data.info.origin.position.x) / map_data.info.resolution + 0.5) + map_data.info.width / 2;
+
+  if(abs(y1-y0) > abs(x1-x0))
+    steep = 1;
+  else
+    steep = 0;
+
+  if(steep)
+  {
+    tmp = x0;
+    x0 = y0;
+    y0 = tmp;
+
+    tmp = x1;
+    x1 = y1;
+    y1 = tmp;
+  }
+
+  deltax = abs(x1-x0);
+  deltay = abs(y1-y0);
+  error = 0;
+  deltaerr = deltay;
+
+  x = x0;
+  y = y0;
+
+  if(x0 < x1)
+    xstep = 1;
+  else
+    xstep = -1;
+  if(y0 < y1)
+    ystep = 1;
+  else
+    ystep = -1;
+
+  if(steep)
+  {
+    if(!((y >= 0) && (y < map_data.info.width) && (x >= 0) && (x < map_data.info.height))
+        || map_data.data[((y) + (x) * map_data.info.width)] > -1)
+      return sqrt((x-x0)*(x-x0) + (y-y0)*(y-y0)) * map_data.info.resolution;
+  }
+  else
+  {
+    if(!((x >= 0) && (x < map_data.info.width) && (y >= 0) && (y < map_data.info.height))
+        || map_data.data[((x) + (y) * map_data.info.width)] > -1)
+      return sqrt((x-x0)*(x-x0) + (y-y0)*(y-y0)) * map_data.info.resolution;
+  }
+
+  while(x != (x1 + xstep * 1))
+  {
+    x += xstep;
+    error += deltaerr;
+    if(2*error >= deltax)
+    {
+      y += ystep;
+      error -= deltax;
+    }
+
+    if(steep)
+    {
+      if(!((y >= 0) && (y < map_data.info.width) && (x >= 0) && (x < map_data.info.height))
+          || map_data.data[((y) + (x) * map_data.info.width)] > -1)
+        return sqrt((x-x0)*(x-x0) + (y-y0)*(y-y0)) * map_data.info.resolution;
+    }
+    else
+    {
+      if(!((x >= 0) && (x < map_data.info.width) && (y >= 0) && (y < map_data.info.height))
+          || map_data.data[((x) + (y) * map_data.info.width)] > -1)
+        return sqrt((x-x0)*(x-x0) + (y-y0)*(y-y0)) * map_data.info.resolution;
+    }
+  }
+  return max_range;
+}
+
+
 Particle::Particle(void)
 {
   pose.header.frame_id = "map";
@@ -234,18 +323,12 @@ double Particle::update_measurment(sensor_msgs::LaserScan& scan,
 {
   double q = 1;
   double xz,yz,dist;
-  double x,y;
   for(int i = 0;i<sensor_data;i++){
     double theta = (2*i/sensor_data-1)*(M_PI/2.0);
     if(scan.ranges[i] <= max_range){
       xz = pose.pose.position.x + scan.ranges[i]*cos(pose.pose.orientation.z+theta);
       yz = pose.pose.position.y + scan.ranges[i]*sin(pose.pose.orientation.z+theta);
-      x=xz;
-      y=yz;
-      while(map.data[(map.info.width*(y-map.info.origin.position.y)+(x-map.info.origin.position.x))/map.info.resolution] != 100){
-        dist += map.info.resolution;
-        x++;
-      }//?
+      dist = map_calc_range(xz,yz,theta);
       q *= z_hit *prob_normal_distribution(dist,sigma_hit) + (z_random/z_max);
     }
   }
