@@ -1,0 +1,9 @@
+<launch>
+  <arg name="map_file" default="$(find chibi_challenge)/mapdata/map_d1.yaml"/>
+  <node pkg="map_server" name="map_server" type="map_server" args="$(arg map_file)" output="screen"/>
+  
+
+  <node pkg="chibi_challenge" name="globalpath" type="globalpath" output="screen"/>
+    
+  
+</launch>
