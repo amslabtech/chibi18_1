@@ -25,7 +25,7 @@ public:
   //現在と１周期前のオドメトリ情報が引数
   void update_motion(geometry_msgs::PoseStamped,geometry_msgs::PoseStamped);
   //レーザデータとマップ情報が引数
-  void update_measurment(sensor_msgs::LaserScan&,nav_msgs::OccupancyGrid&);
+  void update_measurement(sensor_msgs::LaserScan&,nav_msgs::OccupancyGrid&);
 
   geometry_msgs::PoseStamped pose;
   double weight;
@@ -123,7 +123,9 @@ int main(int argc,char** argv)
       std::cout << current_pose.pose.position.x << ", " << current_pose.pose.position.y << ", " << current_pose.pose.orientation.z <<  std::endl;
       for(int i=0;i<N;i++){
         particles[i].update_motion(current_pose,previous_pose);
-        particles[i].update_measurment(laser_data,map_data);
+          std::cout << "motion update"  <<std::endl;
+        particles[i].update_measurement(laser_data,map_data);
+          std::cout << "measurement update"  <<std::endl;
       }
 
       //resampling
@@ -143,10 +145,11 @@ int main(int argc,char** argv)
         new_particles.push_back(particles[index]);
       }
       particles = new_particles;
+      std::cout << "resampling"  <<std::endl;
       for(int i = 0;i<N;i++){
         poses.poses[i] = particles[i].pose.pose;
       }
-      estimated_pose = particles[0].pose;
+      estimated_pose = particles[max_index].pose;
       pose_pub.publish(estimated_pose);
       pose_array_pub.publish(poses);
       transform.setOrigin(tf::Vector3(estimated_pose.pose.position.x, estimated_pose.pose.position.y, 0.0));
@@ -246,13 +249,13 @@ double map_calc_range(double ox, double oy, double oa)
   if(steep)
   {
     if(!((y >= 0) && (y < map_data.info.width) && (x >= 0) && (x < map_data.info.height))
-        || map_data.data[((y) + (x) * map_data.info.width)] > -1)
+        || map_data.data[((y) + (x) * map_data.info.width)] != 0)
       return sqrt((x-x0)*(x-x0) + (y-y0)*(y-y0)) * map_data.info.resolution;
   }
   else
   {
     if(!((x >= 0) && (x < map_data.info.width) && (y >= 0) && (y < map_data.info.height))
-        || map_data.data[((x) + (y) * map_data.info.width)] > -1)
+        || map_data.data[((x) + (y) * map_data.info.width)] != 0)
       return sqrt((x-x0)*(x-x0) + (y-y0)*(y-y0)) * map_data.info.resolution;
   }
 
@@ -269,13 +272,13 @@ double map_calc_range(double ox, double oy, double oa)
     if(steep)
     {
       if(!((y >= 0) && (y < map_data.info.width) && (x >= 0) && (x < map_data.info.height))
-          || map_data.data[((y) + (x) * map_data.info.width)] > -1)
+          || map_data.data[((y) + (x) * map_data.info.width)] != 0)
         return sqrt((x-x0)*(x-x0) + (y-y0)*(y-y0)) * map_data.info.resolution;
     }
     else
     {
       if(!((x >= 0) && (x < map_data.info.width) && (y >= 0) && (y < map_data.info.height))
-          || map_data.data[((x) + (y) * map_data.info.width)] > -1)
+          || map_data.data[((x) + (y) * map_data.info.width)] != 0)
         return sqrt((x-x0)*(x-x0) + (y-y0)*(y-y0)) * map_data.info.resolution;
     }
   }
@@ -336,7 +339,7 @@ void Particle::update_motion(geometry_msgs::PoseStamped current,
   pose.pose.position.y += delta_trans_hat * sin(pose.pose.orientation.z + delta_rot1_hat);
   pose.pose.orientation.z += delta_rot1_hat + delta_rot2_hat;
 }
-void Particle::update_measurment(sensor_msgs::LaserScan& scan,
+void Particle::update_measurement(sensor_msgs::LaserScan& scan,
                                   nav_msgs::OccupancyGrid& map)
 {
   weight = 1;
