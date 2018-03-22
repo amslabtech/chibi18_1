@@ -337,7 +337,7 @@ void Particle::update_motion(geometry_msgs::PoseStamped current,
   double delta_y = current.pose.position.y - previous.pose.position.y;
   double delta_w = angle_diff(get_yaw(current.pose.orientation),get_yaw(previous.pose.orientation));
 
-  std::cout << get_yaw(current.pose.pose.orientation) << "," << get_yaw(previous.pose.orientaion) << std::endl;
+  //std::cout << d1 << "," << d2 << std::endl;
   if(sqrt(delta_y*delta_y + delta_x*delta_x < 0.01))
     delta_rot1 = 0.0;
   else
