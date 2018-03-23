@@ -148,7 +148,7 @@ add_executable(frame_tf_br src/frame_tf_br.cpp)
 add_executable(tf_vel src/tf_vel.cpp)
 add_executable(sending_goal src/sending_goal.cpp)
 add_executable(mcl src/mcl.cpp)
-add_executable(globalpath src/mcl.cpp)
+add_executable(globalpath src/globalpath.cpp)
 
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
