@@ -32,10 +32,11 @@ public:
 private:
 };
 
-float get_yaw(geometry_msgs::Quaternion q);
+double get_yaw(geometry_msgs::Quaternion q);
 
 nav_msgs::OccupancyGrid map_data;
 sensor_msgs::LaserScan laser_data;
+geometry_msgs::PoseStamped estimated_pose;
 geometry_msgs::PoseArray poses;
 geometry_msgs::PoseStamped current_pose;
 geometry_msgs::PoseStamped previous_pose;
@@ -88,7 +89,7 @@ int main(int argc,char** argv)
   local_nh.getParam("z_random", z_random);
   local_nh.getParam("z_max", z_max);
   local_nh.getParam("sigma_hit", sigma_hit);
-  std::cout << z_hit << "," << sigma_hit << std::endl;
+  std::cout << alpha1 << "," << alpha2 << std::endl;
   ros::Publisher pose_pub = nh.advertise
                       <geometry_msgs::PoseStamped>("/mcl_pose",100);
   ros::Publisher pose_array_pub = nh.advertise<geometry_msgs::PoseArray>("/poses",100);
@@ -98,17 +99,19 @@ int main(int argc,char** argv)
 
   tf::TransformBroadcaster map_broadcaster;
   tf::TransformListener listener;
+  tf::StampedTransform temp_tf_stamped;
+  temp_tf_stamped = tf::StampedTransform(tf::Transform(tf::createQuaternionFromYaw(0.0), tf::Vector3(0.0, 0.0, 0)), ros::Time::now(), "map", "odom");
+
+  current_pose.pose.position.x = 0;
+  current_pose.pose.position.y = 0;
+  quaternionTFToMsg(tf::createQuaternionFromYaw(0), current_pose.pose.orientation);
+
 
   ros::Rate loop_rate(10);
 
   while(ros::ok())
   {
     if(map_received){
-
-      double x0 = (0 - map_data.info.origin.position.x) / map_data.info.resolution;
-      double y0 = (0 - map_data.info.origin.position.y) / map_data.info.resolution;
-      std::cout << x0 << "  "<< y0 << std::endl;
-      geometry_msgs::PoseStamped estimated_pose;
       estimated_pose.header.frame_id = "map";
       poses.header.frame_id = "map";
 
@@ -127,27 +130,33 @@ int main(int argc,char** argv)
       current_pose.pose.position.x = transform.getOrigin().x();
       current_pose.pose.position.y = transform.getOrigin().y();
       quaternionTFToMsg(transform.getRotation(), current_pose.pose.orientation);
-      //std::cout << current_pose.pose.position.x << ", " << current_pose.pose.position.y << ", " << current_pose.pose.orientation.z <<  std::endl;
+     // std::cout << current_pose.pose.position.x << ", " << current_pose.pose.position.y << ", " << current_pose.pose.orientation.z <<  std::endl;
+      //motion update
       for(int i=0;i<N;i++){
         particles[i].update_motion(current_pose,previous_pose);
-        particles[i].weight = particles[i].update_measurement(laser_data,map_data);
       }
       //std::cout << "motion update"  <<std::endl;
-      //std::cout << "measurement update"  <<std::endl;
-      float sum = 0;
-      for(int i=0;i<N;i++){
+      
+      //measurement update
+      double sum = 0;
+      for(int i=0;i<N;i++){ 
+        particles[i].weight = particles[i].update_measurement(laser_data,map_data);
         sum += particles[i].weight;
       }
       for(int i=0;i<N;i++){
         particles[i].weight /= sum;
       }
+      //std::cout << "measurement update"  <<std::endl;
+      
+      
       //resampling
       std::vector<Particle> new_particles;
       int max_index = 0;
       for(int i=0;i<N;i++){
         if(particles[i].weight > particles[max_index].weight) max_index = i;
       }
-      std::cout << particles[max_index].weight <<std::endl;
+      
+      //std::cout << particles[max_index].weight <<std::endl;
       double beta = 0.0;
       int index = rand1(mt) * N;
       for(int i=0;i<N;i++){
@@ -160,15 +169,30 @@ int main(int argc,char** argv)
       }
       particles = new_particles;
       //std::cout << "resampling"  <<std::endl;
+      
       for(int i = 0;i<N;i++){
         poses.poses[i] = particles[i].pose.pose;
+        //std::cout << "particle(x,y,theta)" << "(" << particles[i].pose.pose.position.x<< ","<< particles[i].pose.pose.position.y<<","<< get_yaw(particles[i].pose.pose.orientation) << ")" <<  std::endl;
       }
-      estimated_pose = particles[max_index].pose;
+ 
+     // estimated_pose = particles[max_index].pose;
+      estimated_pose.pose.position.x = 0.0; 
+      estimated_pose.pose.position.y = 0.0; 
+      estimated_pose.pose.orientation = tf::createQuaternionMsgFromYaw(0.0); 
       pose_pub.publish(estimated_pose);
       pose_array_pub.publish(poses);
-      transform.setOrigin(tf::Vector3(estimated_pose.pose.position.x, estimated_pose.pose.position.y, 0.0));
-      transform.setRotation(tf::Quaternion(0, 0, get_yaw(estimated_pose.pose.orientation),1));
-      map_broadcaster.sendTransform(tf::StampedTransform(transform,ros::Time::now(),"map","odom"));
+      
+     // std::cout << "estimated_pose(x,y,theta)" << "(" << estimated_pose.pose.position.x<< ","<< estimated_pose.pose.position.y<<","<< get_yaw(estimated_pose.pose.orientation) << ")" <<  std::endl;
+      
+      tf::StampedTransform map_transform;
+      map_transform.setOrigin(tf::Vector3(estimated_pose.pose.position.x, estimated_pose.pose.position.y, 0.0));
+      map_transform.setRotation(tf::Quaternion(0, 0, get_yaw(estimated_pose.pose.orientation),1));
+      tf::Stamped<tf::Pose> tf_stamped(map_transform.inverse(), laser_data.header.stamp, "base_link");
+      tf::Stamped<tf::Pose> odom_to_map; 
+      listener.transformPose("odom", tf_stamped, odom_to_map);
+      tf::Transform latest_tf = tf::Transform(tf::Quaternion(odom_to_map.getRotation()), tf::Point(odom_to_map.getOrigin()));
+      temp_tf_stamped = tf::StampedTransform(latest_tf.inverse(), laser_data.header.stamp, "map", "odom");
+      map_broadcaster.sendTransform(temp_tf_stamped);
     }
     ros::spinOnce();
     loop_rate.sleep();
@@ -176,18 +200,17 @@ int main(int argc,char** argv)
 
   return 0;
 }
-static double normalize(double z)
+double normalize(double z)
 {
   return atan2(sin(z),cos(z));
 }
-static double angle_diff(double a, double b)
+double angle_diff(double a, double b)
 {
   double d1, d2;
   a = normalize(a);
   b = normalize(b);
   d1 = a-b;
   d2 = 2*M_PI - fabs(d1);
-  //std::cout << d1 << "," << d2 << std::endl;
   if(d1 > 0)
     d2 *= -1.0;
   if(fabs(d1) < fabs(d2))
@@ -195,23 +218,18 @@ static double angle_diff(double a, double b)
   else
     return(d2);
 }
-static double sample(double bb)
+double sample(double sigma)
 {
-  double b = sqrt(bb);
-  double result = 0;
+  double sum = 0.0;
   for(int i=0;i<12;i++){
-    result += rand1(mt) * 2 * b - b;
+    sum += rand1(mt)*2*sqrt(sigma)-sqrt(sigma);
   }
-  return 0.5*result;
+  return sum*0.5;
 }
 
-static double prob_normal_distribution(double a,double bb)
+double prob_normal_distribution(double a,double bb)
 {
-  double result = 0;
-  //std::cout << a << ","<< bb <<  std::endl;
-  result = exp(-0.5*a*a/bb);
-  //std::cout << result << std::endl;
-  return result;
+  return exp(-0.5*a*a/bb);
 }
 
 double map_calc_range(double ox, double oy, double oa)
@@ -266,7 +284,7 @@ double map_calc_range(double ox, double oy, double oa)
   if(steep)
   {
     if(!((y >= 0) && (y < map_data.info.width) && (x >= 0) && (x < map_data.info.height))
-        || map_data.data[((y) + (x) * map_data.info.width)] != 0)
+        || map_data.data[(y + x * map_data.info.width)] != 0)
       return sqrt((x-x0)*(x-x0) + (y-y0)*(y-y0)) * map_data.info.resolution;
   }
   else
@@ -295,14 +313,14 @@ double map_calc_range(double ox, double oy, double oa)
     else
     {
       if(!((x >= 0) && (x < map_data.info.width) && (y >= 0) && (y < map_data.info.height))
-          || map_data.data[((x) + (y) * map_data.info.width)] != 0)
+          || map_data.data[(x + y * map_data.info.width)] != 0)
         return sqrt((x-x0)*(x-x0) + (y-y0)*(y-y0)) * map_data.info.resolution;
     }
   }
   return max_range;
 }
 
-float get_yaw(geometry_msgs::Quaternion q)
+double get_yaw(geometry_msgs::Quaternion q)
 {
   double r, p, y;
   tf::Quaternion quat(q.x, q.y, q.z, q.w);
@@ -337,49 +355,49 @@ void Particle::update_motion(geometry_msgs::PoseStamped current,
   double delta_y = current.pose.position.y - previous.pose.position.y;
   double delta_w = angle_diff(get_yaw(current.pose.orientation),get_yaw(previous.pose.orientation));
 
-  //std::cout << d1 << "," << d2 << std::endl;
   if(sqrt(delta_y*delta_y + delta_x*delta_x < 0.01))
     delta_rot1 = 0.0;
   else
     delta_rot1 = angle_diff(atan2(delta_y ,delta_x),get_yaw(previous.pose.orientation));
   delta_trans = sqrt(delta_x*delta_x + delta_y*delta_y);
   delta_rot2 = angle_diff(delta_w, delta_rot1);
+  //std::cout << delta_rot1<<"," <<delta_trans <<","<< delta_rot2<< std::endl;
+  delta_rot1_noise = std::min(fabs(angle_diff(delta_rot1,0.0)), fabs(angle_diff(delta_rot1,M_PI)));
+  delta_rot2_noise = std::min(fabs(angle_diff(delta_rot2,0.0)), fabs(angle_diff(delta_rot2,M_PI)));
+  //std::cout << delta_rot1_noise <<","<< delta_rot2_noise<< std::endl;
+  std::normal_distribution<> sample_rot1(0, alpha1*delta_rot1_noise*delta_rot1_noise + alpha2*delta_trans*delta_trans);
+  delta_rot1_hat = angle_diff(delta_rot1,sample_rot1(mt));
+  std::normal_distribution<> sample_trans(0,alpha3*delta_trans*delta_trans + alpha4*delta_rot1_noise*delta_rot1_noise + alpha4*delta_rot2_noise*delta_rot2_noise);
+  delta_trans_hat = delta_trans - sample_trans(mt);
+  std::normal_distribution<> sample_rot2(0, alpha1*delta_rot2_noise*delta_rot2_noise + alpha2*delta_trans*delta_trans);
+  delta_rot2_hat = angle_diff(delta_rot2, sample_rot2(mt));
+  //std::cout << delta_rot1_hat<<"," <<delta_trans_hat <<","<< delta_rot2_hat<< std::endl;
 
-  delta_rot1_noise = std::min(fabs(angle_diff(delta_rot1,0.0)),
-                              fabs(angle_diff(delta_rot1,M_PI)));
-  delta_rot2_noise = std::min(fabs(angle_diff(delta_rot2,0.0)),
-                              fabs(angle_diff(delta_rot2,M_PI)));
-
-  delta_rot1_hat = angle_diff(delta_rot1,
-                                sample(alpha1*delta_rot1_noise*delta_rot1_noise +
-                                       alpha2*delta_trans*delta_trans));
-  delta_trans_hat = delta_trans -
-                    sample(alpha3*delta_trans*delta_trans +
-                                 alpha4*delta_rot1_noise*delta_rot1_noise +
-                                 alpha4*delta_rot2_noise*delta_rot2_noise);
-  delta_rot2_hat = angle_diff(delta_rot2,
-                                sample(alpha1*delta_rot2_noise*delta_rot2_noise +
-                                        alpha2*delta_trans*delta_trans));
-
+  //std::cout << current_pose.pose.position.x << ", " << current_pose.pose.position.y << ", " << current_pose.pose.orientation.z <<  std::endl;
+  
   pose.pose.position.x += delta_trans_hat * cos(get_yaw(pose.pose.orientation) + delta_rot1_hat);
   pose.pose.position.y += delta_trans_hat * sin(get_yaw(pose.pose.orientation) + delta_rot1_hat);
-  quaternionTFToMsg(tf::createQuaternionFromYaw(get_yaw(pose.pose.orientation)+delta_rot1_hat + delta_rot2_hat), pose.pose.orientation);
+  quaternionTFToMsg(tf::createQuaternionFromYaw(get_yaw(pose.pose.orientation) + delta_rot1_hat + delta_rot2_hat), pose.pose.orientation);
 }
 
 double Particle::update_measurement(sensor_msgs::LaserScan& scan,
                                   nav_msgs::OccupancyGrid& map)
 {
-  double  w = 1;
+  double  w = 1.0;
   double xz,yz,dist;
+  double error = 0.0;
   for(int i = 0;i<sensor_data;i++){
     double theta = (2.0*i/sensor_data-1.0)*(M_PI/2.0);
     if(scan.ranges[i] <= max_range){
       xz = pose.pose.position.x;// + scan.ranges[i]*cos(get_yaw(pose.pose.orientation)+theta);
       yz = pose.pose.position.y;// + scan.ranges[i]*sin(get_yaw(pose.pose.orientation)+theta);
       dist = map_calc_range(xz,yz,get_yaw(pose.pose.orientation)+theta);
-      w *= z_hit *prob_normal_distribution(dist,sigma_hit*sigma_hit) + 1;// + (z_random/z_max);
-      std::cout << i << "  " << dist << " , "<< get_yaw(pose.pose.orientation) <<std::endl;
+      error += (scan.ranges[i] - dist)*(scan.ranges[i] -dist);
+      
+      //w *= z_hit *prob_normal_distribution(dist,sigma_hit*sigma_hit) + (z_random/z_max);
+     // std::cout << i << "  " << dist << " , "<< get_yaw(pose.pose.orientation) <<std::endl;
     }
   }
+  w = exp(-error/sigma_hit);
   return w;
 }
