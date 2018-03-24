@@ -59,7 +59,7 @@ void map_callback(const nav_msgs::OccupancyGridConstPtr& msg)
   map_data = *msg;
   for(int i = 0;i<N;i++){
     Particle p;
-    p.init(0,0,0,0.5,0.5,0.5,map_data);
+    p.init(0,0,0,1.0,1.0,1.0,map_data);
     particles.push_back(p);
     poses.poses.push_back(p.pose.pose);
   }
@@ -89,7 +89,7 @@ int main(int argc,char** argv)
   local_nh.getParam("z_random", z_random);
   local_nh.getParam("z_max", z_max);
   local_nh.getParam("sigma_hit", sigma_hit);
-  std::cout << alpha1 << "," << alpha2 << std::endl;
+  std::cout << alpha1 << "," << sigma_hit << std::endl;
   ros::Publisher pose_pub = nh.advertise
                       <geometry_msgs::PoseStamped>("/mcl_pose",100);
   ros::Publisher pose_array_pub = nh.advertise<geometry_msgs::PoseArray>("/poses",100);
@@ -141,6 +141,7 @@ int main(int argc,char** argv)
       double sum = 0;
       for(int i=0;i<N;i++){ 
         particles[i].weight = particles[i].update_measurement(laser_data,map_data);
+        std::cout << i << "  " <<particles[i].weight << std::endl;
         sum += particles[i].weight;
       }
       for(int i=0;i<N;i++){
@@ -170,15 +171,19 @@ int main(int argc,char** argv)
       particles = new_particles;
       //std::cout << "resampling"  <<std::endl;
       
+      double sum_x ,sum_y,sum_yaw;
       for(int i = 0;i<N;i++){
         poses.poses[i] = particles[i].pose.pose;
+        sum_x += particles[i].pose.pose.position.x;
+        sum_y += particles[i].pose.pose.position.y;
+        sum_yaw += get_yaw(particles[i].pose.pose.orientation);
         //std::cout << "particle(x,y,theta)" << "(" << particles[i].pose.pose.position.x<< ","<< particles[i].pose.pose.position.y<<","<< get_yaw(particles[i].pose.pose.orientation) << ")" <<  std::endl;
       }
  
-     // estimated_pose = particles[max_index].pose;
-      estimated_pose.pose.position.x = 0.0; 
-      estimated_pose.pose.position.y = 0.0; 
-      estimated_pose.pose.orientation = tf::createQuaternionMsgFromYaw(0.0); 
+      estimated_pose = particles[max_index].pose;
+      //estimated_pose.pose.position.x = sum_x / N; i
+      //estimated_pose.pose.position.y = sum_y / N; 
+      //estimated_pose.pose.orientation = tf::createQuaternionMsgFromYaw(sum_yaw / N); 
       pose_pub.publish(estimated_pose);
       pose_array_pub.publish(poses);
       
@@ -383,7 +388,7 @@ void Particle::update_motion(geometry_msgs::PoseStamped current,
 double Particle::update_measurement(sensor_msgs::LaserScan& scan,
                                   nav_msgs::OccupancyGrid& map)
 {
-  double  w = 1.0;
+  double  w;
   double xz,yz,dist;
   double error = 0.0;
   for(int i = 0;i<sensor_data;i++){
@@ -395,9 +400,9 @@ double Particle::update_measurement(sensor_msgs::LaserScan& scan,
       error += (scan.ranges[i] - dist)*(scan.ranges[i] -dist);
       
       //w *= z_hit *prob_normal_distribution(dist,sigma_hit*sigma_hit) + (z_random/z_max);
-     // std::cout << i << "  " << dist << " , "<< get_yaw(pose.pose.orientation) <<std::endl;
+     // std::cout << i << "  " << dist << " , "<< error <<std::endl;
     }
   }
-  w = exp(-error/sigma_hit);
+  w = exp(-error/(sigma_hit*sigma_hit*2));
   return w;
 }
