@@ -2,11 +2,11 @@
   <arg name="map_file" default="$(find chibi_challenge)/mapdata/map_d1.yaml"/>
   <node pkg="map_server" name="map_server" type="map_server" args="$(arg map_file)" output="screen"/>
   
-  <arg name="PARTICLE_N" default="1000"/>
-  <arg name="ALPHA_1" default="2.0"/>
-  <arg name="ALPHA_2" default="2.0"/>
-  <arg name="ALPHA_3" default="1.0"/>
-  <arg name="ALPHA_4" default="1.0"/>
+  <arg name="PARTICLE_N" default="500"/>
+  <arg name="ALPHA_1" default="0.8"/>
+  <arg name="ALPHA_2" default="0.8"/>
+  <arg name="ALPHA_3" default="0.3"/>
+  <arg name="ALPHA_4" default="0.3"/>
   <arg name="MAX_RANGE" default="20"/>
   <arg name="Z_HIT" default="0.5"/>
   <arg name="Z_RANDOM" default="0.5"/>
