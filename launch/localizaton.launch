@@ -1,28 +1,24 @@
 <launch>
   <arg name="map_file" default="$(find chibi_challenge)/mapdata/map_d1.yaml"/>
   <node pkg="map_server" name="map_server" type="map_server" args="$(arg map_file)" output="screen"/>
-  
-  <arg name="PARTICLE_N" default="500"/>
-  <arg name="ALPHA_1" default="0.8"/>
-  <arg name="ALPHA_2" default="0.8"/>
-  <arg name="ALPHA_3" default="0.3"/>
-  <arg name="ALPHA_4" default="0.3"/>
-  <arg name="MAX_RANGE" default="20"/>
-  <arg name="Z_HIT" default="0.5"/>
-  <arg name="Z_RANDOM" default="0.5"/>
-  <arg name="Z_MAX" default="0.05"/>
-  <arg name="SIGMA_HIT" default="100"/>
+
   <node pkg="chibi_challenge" name="mcl" type="mcl" output="screen">
-    <param name="N" value="$(arg PARTICLE_N)"/>
-    <param name="alpha1" value="$(arg ALPHA_1)"/>
-    <param name="alpha2" value="$(arg ALPHA_2)"/>
-    <param name="alpha3" value="$(arg ALPHA_3)"/>
-    <param name="alpha4" value="$(arg ALPHA_4)"/>
-    <param name="max_range" value="$(arg MAX_RANGE)"/>
-    <param name="z_hit" value="$(arg Z_HIT)"/>
-    <param name="z_random" value="$(arg Z_RANDOM)"/>
-    <param name="z_max" value="$(arg Z_MAX)"/>
-    <param name="sigma_hit" value="$(arg SIGMA_HIT)"/>
+    <param name="N" value="1000"/>
+    <param name="alpha1" value="0.8"/>
+    <param name="alpha2" value="0.8"/>
+    <param name="alpha3" value="0.3"/>
+    <param name="alpha4" value="0.3"/>
+    <param name="max_range" value="20"/>
+    <param name="z_hit" value="0.5"/>
+    <param name="z_random" value="0.5"/>
+    <param name="z_max" value="0.05"/>
+    <param name="sigma_hit" value="100"/>
+    <param name="init_pose_x" value="-3.0"/>
+    <param name="init_pose_y" value="-3.0"/>
+    <param name="init_pose_yaw" value="3.14"/>
+    <param name="init_pose_x_cov" value="1.0"/>
+    <param name="init_pose_y_cov" value="1.0"/>
+    <param name="init_pose_yaw_cov" value="0.3"/>
   </node>
 
 </launch>

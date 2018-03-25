@@ -21,7 +21,7 @@ public:
   //(x,y,theta,cov_x,cov_y,cov_theta,map)
   void init(float init_x,float init_y,float init_yaw,
                     float init_x_cov,float init_y_cov,float init_yaw_cov,
-                    nav_msgs::OccupancyGrid& map);
+             nav_msgs::OccupancyGrid&);
   //現在と１周期前のオドメトリ情報が引数
   void update_motion(geometry_msgs::PoseStamped,geometry_msgs::PoseStamped);
   //レーザデータとマップ情報が引数
@@ -51,21 +51,27 @@ double z_hit;
 double z_random;
 double z_max;
 double sigma_hit;
+double init_pose_x;
+double init_pose_y;
+double init_pose_yaw;
+double init_pose_x_cov;
+double init_pose_y_cov;
+double init_pose_yaw_cov;
 bool map_received = false;
 std::vector<Particle>  particles;
 
 void map_callback(const nav_msgs::OccupancyGridConstPtr& msg)
 {
+  std::cout << "map_received"  <<std::endl;
   map_data = *msg;
+  map_received = true;
   for(int i = 0;i<N;i++){
     Particle p;
-    p.init(0,0,0,1.0,1.0,1.0,map_data);
+    p.init(init_pose_x,init_pose_y,init_pose_yaw,init_pose_x_cov,init_pose_y_cov,init_pose_yaw_cov,map_data);
     particles.push_back(p);
     poses.poses.push_back(p.pose.pose);
   }
   poses.header.frame_id = "map";
-  std::cout << "map_received"  <<std::endl;
-  map_received = true;
 }
 
 void laser_callback(const sensor_msgs::LaserScanConstPtr& msg)
@@ -89,7 +95,12 @@ int main(int argc,char** argv)
   local_nh.getParam("z_random", z_random);
   local_nh.getParam("z_max", z_max);
   local_nh.getParam("sigma_hit", sigma_hit);
-  std::cout << alpha1 << "," << sigma_hit << std::endl;
+  local_nh.getParam("init_pose_x",init_pose_x);
+  local_nh.getParam("init_pose_y",init_pose_y);
+  local_nh.getParam("init_pose_yaw",init_pose_yaw);
+  local_nh.getParam("init_pose_x_cov",init_pose_x_cov);
+  local_nh.getParam("init_pose_y_cov",init_pose_y_cov);
+  local_nh.getParam("init_pose_yaw_cov",init_pose_yaw_cov);
   ros::Publisher pose_pub = nh.advertise
                       <geometry_msgs::PoseStamped>("/mcl_pose",100);
   ros::Publisher pose_array_pub = nh.advertise<geometry_msgs::PoseArray>("/poses",100);
@@ -339,16 +350,22 @@ Particle::Particle(void)
   pose.pose.position.x = 0;
   pose.pose.position.y = 0;
   quaternionTFToMsg(tf::createQuaternionFromYaw(0), pose.pose.orientation);
-  weight = 1/N;
+  weight = 1/(float)N;
 }
 
 void Particle::init(float init_x,float init_y,float init_yaw,
                     float init_x_cov,float init_y_cov,float init_yaw_cov,
                     nav_msgs::OccupancyGrid& map)
 {
-  pose.pose.position.x = sample(init_x,init_x_cov);
-  pose.pose.position.y = sample(init_y,init_y_cov);
-  quaternionTFToMsg(tf::createQuaternionFromYaw(sample(init_yaw,init_yaw_cov)), pose.pose.orientation);
+  int index,x,y;
+  do{
+    pose.pose.position.x = sample(init_x,init_x_cov);
+    pose.pose.position.y = sample(init_y,init_y_cov);
+    quaternionTFToMsg(tf::createQuaternionFromYaw(sample(init_yaw,init_yaw_cov)), pose.pose.orientation);
+    x = (pose.pose.position.x - map_data.info.origin.position.x) / map_data.info.resolution;
+    y = (pose.pose.position.y - map_data.info.origin.position.y) / map_data.info.resolution;
+    index = (x + y * map.info.width);
+ }while(map.data[index] != 0);
 }
 void Particle::update_motion(geometry_msgs::PoseStamped current,
                               geometry_msgs::PoseStamped previous)
