@@ -135,19 +135,19 @@ int main(int argc,char** argv)
       for(int i=0;i<N;i++){
         particles[i].update_motion(current_pose,previous_pose);
       }
-      //std::cout << "motion update"  <<std::endl;
+      std::cout << "motion update"  <<std::endl;
       
       //measurement update
       double sum = 0;
       for(int i=0;i<N;i++){ 
         particles[i].weight = particles[i].update_measurement(laser_data,map_data);
-        std::cout << i << "  " <<particles[i].weight << std::endl;
+       // std::cout << i << "  " <<particles[i].weight << std::endl;
         sum += particles[i].weight;
       }
       for(int i=0;i<N;i++){
         particles[i].weight /= sum;
       }
-      //std::cout << "measurement update"  <<std::endl;
+      std::cout << "measurement update"  <<std::endl;
       
       
       //resampling
@@ -169,21 +169,23 @@ int main(int argc,char** argv)
         new_particles.push_back(particles[index]);
       }
       particles = new_particles;
-      //std::cout << "resampling"  <<std::endl;
+      std::cout << "resampling"  <<std::endl;
       
-      double sum_x ,sum_y,sum_yaw;
+      double sum_x=0;
+      double sum_y=0;
+      double sum_yaw=0;
       for(int i = 0;i<N;i++){
         poses.poses[i] = particles[i].pose.pose;
-        sum_x += particles[i].pose.pose.position.x;
-        sum_y += particles[i].pose.pose.position.y;
-        sum_yaw += get_yaw(particles[i].pose.pose.orientation);
+        sum_x += particles[i].pose.pose.position.x * particles[i].weight;
+        sum_y += particles[i].pose.pose.position.y * particles[i].weight;
+        sum_yaw += get_yaw(particles[i].pose.pose.orientation) * particles[i].weight;
         //std::cout << "particle(x,y,theta)" << "(" << particles[i].pose.pose.position.x<< ","<< particles[i].pose.pose.position.y<<","<< get_yaw(particles[i].pose.pose.orientation) << ")" <<  std::endl;
       }
  
       estimated_pose = particles[max_index].pose;
-      //estimated_pose.pose.position.x = sum_x / N; i
-      //estimated_pose.pose.position.y = sum_y / N; 
-      //estimated_pose.pose.orientation = tf::createQuaternionMsgFromYaw(sum_yaw / N); 
+     // estimated_pose.pose.position.x = sum_x;
+     // estimated_pose.pose.position.y = sum_y; 
+     // estimated_pose.pose.orientation = tf::createQuaternionMsgFromYaw(sum_yaw); 
       pose_pub.publish(estimated_pose);
       pose_array_pub.publish(poses);
       
@@ -223,13 +225,11 @@ double angle_diff(double a, double b)
   else
     return(d2);
 }
-double sample(double sigma)
+
+double sample(double mu, double sigma)
 {
-  double sum = 0.0;
-  for(int i=0;i<12;i++){
-    sum += rand1(mt)*2*sqrt(sigma)-sqrt(sigma);
-  }
-  return sum*0.5;
+  double  z = sqrt(-2.0 * log(rand1(mt))) * sin(2.0 * M_PI *rand1(mt));
+  return mu + sigma * z;
 }
 
 double prob_normal_distribution(double a,double bb)
@@ -346,9 +346,9 @@ void Particle::init(float init_x,float init_y,float init_yaw,
                     float init_x_cov,float init_y_cov,float init_yaw_cov,
                     nav_msgs::OccupancyGrid& map)
 {
-  pose.pose.position.x = rand1(mt) * 2 * init_x_cov + init_x - init_x_cov;
-  pose.pose.position.y = rand1(mt) * 2 * init_y_cov + init_y - init_y_cov;
-  quaternionTFToMsg(tf::createQuaternionFromYaw(rand1(mt) * 2 * init_yaw_cov + init_yaw - init_yaw_cov), pose.pose.orientation);
+  pose.pose.position.x = sample(init_x,init_x_cov);
+  pose.pose.position.y = sample(init_y,init_y_cov);
+  quaternionTFToMsg(tf::createQuaternionFromYaw(sample(init_yaw,init_yaw_cov)), pose.pose.orientation);
 }
 void Particle::update_motion(geometry_msgs::PoseStamped current,
                               geometry_msgs::PoseStamped previous)
@@ -370,12 +370,9 @@ void Particle::update_motion(geometry_msgs::PoseStamped current,
   delta_rot1_noise = std::min(fabs(angle_diff(delta_rot1,0.0)), fabs(angle_diff(delta_rot1,M_PI)));
   delta_rot2_noise = std::min(fabs(angle_diff(delta_rot2,0.0)), fabs(angle_diff(delta_rot2,M_PI)));
   //std::cout << delta_rot1_noise <<","<< delta_rot2_noise<< std::endl;
-  std::normal_distribution<> sample_rot1(0, alpha1*delta_rot1_noise*delta_rot1_noise + alpha2*delta_trans*delta_trans);
-  delta_rot1_hat = angle_diff(delta_rot1,sample_rot1(mt));
-  std::normal_distribution<> sample_trans(0,alpha3*delta_trans*delta_trans + alpha4*delta_rot1_noise*delta_rot1_noise + alpha4*delta_rot2_noise*delta_rot2_noise);
-  delta_trans_hat = delta_trans - sample_trans(mt);
-  std::normal_distribution<> sample_rot2(0, alpha1*delta_rot2_noise*delta_rot2_noise + alpha2*delta_trans*delta_trans);
-  delta_rot2_hat = angle_diff(delta_rot2, sample_rot2(mt));
+  delta_rot1_hat = angle_diff(delta_rot1,sample(0.0,alpha1*delta_rot1_noise*delta_rot1_noise + alpha2*delta_trans*delta_trans));
+  delta_trans_hat = delta_trans - sample(0.0,alpha3*delta_trans*delta_trans + alpha4*delta_rot1_noise*delta_rot1_noise + alpha4*delta_rot2_noise*delta_rot2_noise);
+  delta_rot2_hat = angle_diff(delta_rot2, sample(0.0,alpha1*delta_rot2_noise*delta_rot2_noise + alpha2*delta_trans*delta_trans));
   //std::cout << delta_rot1_hat<<"," <<delta_trans_hat <<","<< delta_rot2_hat<< std::endl;
 
   //std::cout << current_pose.pose.position.x << ", " << current_pose.pose.position.y << ", " << current_pose.pose.orientation.z <<  std::endl;
@@ -394,12 +391,10 @@ double Particle::update_measurement(sensor_msgs::LaserScan& scan,
   for(int i = 0;i<sensor_data;i++){
     double theta = (2.0*i/sensor_data-1.0)*(M_PI/2.0);
     if(scan.ranges[i] <= max_range){
-      xz = pose.pose.position.x;// + scan.ranges[i]*cos(get_yaw(pose.pose.orientation)+theta);
-      yz = pose.pose.position.y;// + scan.ranges[i]*sin(get_yaw(pose.pose.orientation)+theta);
+      xz = pose.pose.position.x;
+      yz = pose.pose.position.y;
       dist = map_calc_range(xz,yz,get_yaw(pose.pose.orientation)+theta);
       error += (scan.ranges[i] - dist)*(scan.ranges[i] -dist);
-      
-      //w *= z_hit *prob_normal_distribution(dist,sigma_hit*sigma_hit) + (z_random/z_max);
      // std::cout << i << "  " << dist << " , "<< error <<std::endl;
     }
   }
