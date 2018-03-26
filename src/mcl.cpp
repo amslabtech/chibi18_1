@@ -187,16 +187,16 @@ int main(int argc,char** argv)
       double sum_yaw=0;
       for(int i = 0;i<N;i++){
         poses.poses[i] = particles[i].pose.pose;
-        sum_x += particles[i].pose.pose.position.x * particles[i].weight;
-        sum_y += particles[i].pose.pose.position.y * particles[i].weight;
-        sum_yaw += get_yaw(particles[i].pose.pose.orientation) * particles[i].weight;
+        sum_x += particles[i].pose.pose.position.x;// * particles[i].weight;
+        sum_y += particles[i].pose.pose.position.y;// * particles[i].weight;
+        sum_yaw += (fmod((get_yaw(particles[i].pose.pose.orientation)-get_yaw(particles[0].pose.pose.orientation) + M_PI),(2.0*M_PI)) + get_yaw(particles[0].pose.pose.orientation) - M_PI);// * particles[i].weight;
         //std::cout << "particle(x,y,theta)" << "(" << particles[i].pose.pose.position.x<< ","<< particles[i].pose.pose.position.y<<","<< get_yaw(particles[i].pose.pose.orientation) << ")" <<  std::endl;
       }
  
-      estimated_pose = particles[max_index].pose;
-     // estimated_pose.pose.position.x = sum_x;
-     // estimated_pose.pose.position.y = sum_y; 
-     // estimated_pose.pose.orientation = tf::createQuaternionMsgFromYaw(sum_yaw); 
+      //estimated_pose = particles[max_index].pose;
+      estimated_pose.pose.position.x = sum_x/N;
+      estimated_pose.pose.position.y = sum_y/N; 
+      estimated_pose.pose.orientation = tf::createQuaternionMsgFromYaw(sum_yaw/N); 
       pose_pub.publish(estimated_pose);
       pose_array_pub.publish(poses);
       
