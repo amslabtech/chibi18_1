@@ -1,0 +1,16 @@
+<launch>
+  <node pkg="chibi_challenge" name="localpath" type="localpath" output="screen">
+    <param name="max_speed" value="0.45"/>
+    <param name="max_yawrate" value="1.0"/>
+    <param name="max_accel" value="1.5"/>
+    <param name="max_dyawrate" value="6.0"/>
+    <param name="v_resro" value="0.01"/>
+    <param name="yawrate_resro" value="0.05"/>
+    <param name="dt" value="0.5"/>
+    <param name="predict_time" value="2.0"/>
+    <param name="robot_radius" value="0.25"/>
+    <param name="alpha" value="0.1"/>
+    <param name="beta" value="0.1"/>
+    <param name="gamma" value="0.0"/>
+  </node>
+</launch>
