@@ -61,6 +61,7 @@ double calc_heading(nav_msgs::Path traj, position goal, evaluate_param param);
 double calc_distance();
 double max(double,double);
 double min(double,double);
+double get_yaw(geometry_msgs::Quaternion);
 
 void pose_callback(const geometry_msgs::PoseStampedConstPtr& msg)
 {
@@ -259,8 +260,7 @@ geometry_msgs::Twist calc_final_input(Robot r,Dynamic_window dw,position goal,Mo
   position Xinit = {
     current_position.pose.position.x,
     current_position.pose.position.y,
-    // 未完成, yaw角がほしい
-    0,// current_position.pose.orientation ????
+    get_yaw(current_position.pose.orientation)
   };
   double min_cost = 10000.0;
   double best_v = 0.0;
@@ -322,3 +322,12 @@ double min(double a,double b)
   if(a>b) _min = b;
   return _min;
 }
+
+double get_yaw(geometry_msgs::Quaternion q)
+{
+  double r, p, y;
+  tf::Quaternion quat(q.x, q.y, q.z, q.w);
+  tf::Matrix3x3(quat).getRPY(r, p, y);
+  return y;
+}
+
