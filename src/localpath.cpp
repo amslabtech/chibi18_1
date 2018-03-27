@@ -5,6 +5,8 @@
 #include <geometry_msgs/PoseStamped.h>
 #include <sensor_msgs/LaserScan.h>
 
+#include <tf/tf.h>
+
 #include <math.h>
 #include <string.h>
 
@@ -201,10 +203,9 @@ nav_msgs::Path calc_trajectory(
     X.y = X.y + v*sin(X.yaw)*dt;
     X.yaw = X.yaw + w*dt;
 
-    //未完成, 計算したyaw角をtraj[i]に保存したい
     traj.poses[i].pose.position.x = X.x;
     traj.poses[i].pose.position.y = X.y;
-    //traj.poses[i].orientation = ???????
+    traj.poses[i].pose.orientation = tf::createQuaternionMsgFromYaw(X.yaw);
   }
 
   return traj;
