@@ -5,6 +5,9 @@
 #include <geometry_msgs/PoseStamped.h>
 #include <sensor_msgs/LaserScan.h>
 
+#include <math.h>
+#include <string.h>
+
 geometry_msgs::PoseStamped current_position;
 sensor_msgs::LaserScan laser_data;
 nav_msgs::Path global_path;
@@ -29,8 +32,8 @@ typedef struct
   double max_yawrate;
   double max_accel;
   double max_dyawrate;
-  double v_resro;
-  double yawrate_resro;
+  double v_reso;
+  double yawrate_reso;
 }Model;
 
 typedef struct
@@ -50,8 +53,9 @@ typedef struct
 }Dynamic_window;
 
 Dynamic_window calc_dynamic_window(Robot,Model);
-geometry_msgs::Twist calc_final_input(Robot,Dynamic_window,position,Model,evaluate_param);
-double calc_heading();
+nav_msgs::Path calc_trajectory(position  Xinit, double v, double w, evaluate_param param);
+geometry_msgs::Twist calc_final_input(Robot,Dynamic_window,position,Model,evaluate_param,nav_msgs::Path& localpath);
+double calc_heading(nav_msgs::Path traj, position goal, evaluate_param param);
 double calc_distance();
 double max(double,double);
 double min(double,double);
@@ -75,8 +79,8 @@ double _max_speed;
 double _max_yawrate;
 double _max_accel;
 double _max_dyawrate;
-double _v_resro;
-double _yawrate_resro;
+double _v_reso;
+double _yawrate_reso;
 double dt;
 double _predict_time;
 double _robot_radius;
@@ -94,8 +98,8 @@ int main(int argc, char** argv)
   local_nh.getParam("max_yawrate", _max_yawrate);
   local_nh.getParam("max_accel", _max_accel);
   local_nh.getParam("max_dyawrate", _max_dyawrate);
-  local_nh.getParam("v_resro", _v_resro);
-  local_nh.getParam("yawrate_resro", _yawrate_resro);
+  local_nh.getParam("v_reso", _v_reso);
+  local_nh.getParam("yawrate_reso", _yawrate_reso);
   local_nh.getParam("dt", dt);
   local_nh.getParam("predict_time", _predict_time);
   local_nh.getParam("robot_radius", _robot_radius);
@@ -126,8 +130,8 @@ int main(int argc, char** argv)
   model.max_yawrate = _max_yawrate;
   model.max_accel = _max_accel;
   model.max_dyawrate = _max_dyawrate;
-  model.v_resro = _v_resro;
-  model.yawrate_resro = _yawrate_resro;
+  model.v_reso = _v_reso;
+  model.yawrate_reso = _yawrate_reso;
   
   evaluate_param param;
   param.alpha = _alpha;
@@ -142,13 +146,14 @@ int main(int argc, char** argv)
   robot.v = 0.0;
   robot.w = 0.0; 
 
-  Dynamic_window dw = calc_dynamic_window(robot,model);
-  std::cout << dw.max_v << std::endl;
- 
+  
   ros::Rate loop_rate(10);
 
   while(ros::ok()){
-      
+    Dynamic_window dw = calc_dynamic_window(robot,model); //while文内に移動
+    std::cout << dw.max_v << std::endl;
+    velocity.twist = calc_final_input(robot, dw, goal, model, param, local_path);
+
     velocity_pub.publish(velocity);
     local_path_pub.publish(local_path);
     ros::spinOnce();
@@ -179,10 +184,39 @@ Dynamic_window calc_dynamic_window(Robot r,Model m)
   return Dw;
 }
 
-geometry_msgs::Twist calc_final_input(Robot r,Dynamic_window dw,position goal,Model m,evaluate_param p)
+//中本追加
+nav_msgs::Path calc_trajectory(
+   position  Xinit,     //ロボット現在位置, ここからlocal path が伸びる
+   double v,            //直進方向速度
+   double w,            //回転角速度
+  evaluate_param param  
+  )
 {
-  int elements_v = int((dw.max_v - dw.min_v) / m.v_resro);
-  int elements_w = int((dw.max_w - dw.min_w) / m.yawrate_resro);
+  nav_msgs::Path traj; //trajectory... 軌跡, 
+  position X = Xinit;
+
+  int N = param.predict_time / dt;
+  for(int i=1; i<N; i++){
+    X.x = X.x + v*cos(X.yaw)*dt;
+    X.y = X.y + v*sin(X.yaw)*dt;
+    X.yaw = X.yaw + w*dt;
+
+    //未完成, 計算したyaw角をtraj[i]に保存したい
+    traj.poses[i].pose.position.x = X.x;
+    traj.poses[i].pose.position.y = X.y;
+    //traj.poses[i].orientation = ???????
+  }
+
+  return traj;
+}
+
+
+
+geometry_msgs::Twist calc_final_input(Robot r,Dynamic_window dw,position goal,Model m,evaluate_param p, nav_msgs::Path& localpath)
+{
+  /*
+  int elements_v = int((dw.max_v - dw.min_v) / m.v_reso);
+  int elements_w = int((dw.max_w - dw.min_w) / m.yawrate_reso);
   double evaluation[elements_v][elements_w];
   for(int i = 0; i < elements_v; i++){
     for(int j = 0; j < elements_w; j++){
@@ -215,12 +249,58 @@ geometry_msgs::Twist calc_final_input(Robot r,Dynamic_window dw,position goal,Mo
   geometry_msgs::Twist velocity;
   
   return velocity;
+  */
+  // コメントアウト,ごめん意図を読めなかった
+  
+
+
+  //変数設定
+  position Xinit = {
+    current_position.pose.position.x,
+    current_position.pose.position.y,
+    // 未完成, yaw角がほしい
+    0,// current_position.pose.orientation ????
+  };
+  double min_cost = 10000.0;
+  double best_v = 0.0;
+  double best_w = 0.0;
+  nav_msgs::Path best_traj;
+
+  //dynamic window 内の速度をサンプリングし, 最低コストの出力を計算
+  for(double v = dw.min_v; v <= dw.max_v; v+=m.v_reso){
+    for(double w = dw.min_w; w <= dw.max_w; w+=m.yawrate_reso){
+      nav_msgs::Path traj = calc_trajectory(Xinit, v, w, p);
+
+      double cost = 
+          p.alpha * calc_heading(traj, goal, p) 
+        + p.beta * calc_distance() 
+        + p.gamma * v;
+
+      if(cost <= min_cost){
+        min_cost = cost;
+        best_v = v;
+        best_w = w;
+        best_traj = traj;
+      }
+    }
+  }
+
+  geometry_msgs::Twist vel;
+  vel.linear.x = best_v;
+  vel.angular.z = best_w;
+
+  localpath = best_traj;
+  return vel;
+
 }
 
-double calc_heading()
+double calc_heading(nav_msgs::Path traj, position goal, evaluate_param param)
 {
-  
-  return 0;
+  int N = param.predict_time / dt;
+  double dx = traj.poses[N-1].pose.position.x - goal.x;
+  double dy = traj.poses[N-1].pose.position.y - goal.y;
+  double cost = sqrt( dx*dx + dy*dy);
+  return cost;
 }
 
 double calc_distance()
