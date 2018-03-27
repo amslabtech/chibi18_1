@@ -153,7 +153,7 @@ int main(int argc, char** argv)
   ros::Rate loop_rate(10);
 
   while(ros::ok()){
-    Dynamic_window dw = calc_dynamic_window(robot,model); //while文内に移動
+    Dynamic_window dw = calc_dynamic_window(robot,model);
     std::cout << dw.max_v << std::endl;
     velocity.twist = calc_final_input(robot, dw, goal, model, param, local_path);
 
@@ -187,7 +187,6 @@ Dynamic_window calc_dynamic_window(Robot r,Model m)
   return Dw;
 }
 
-//中本追加
 nav_msgs::Path calc_trajectory(
    position  Xinit,     //ロボット現在位置, ここからlocal path が伸びる
    double v,            //直進方向速度
@@ -216,46 +215,6 @@ nav_msgs::Path calc_trajectory(
 
 geometry_msgs::Twist calc_final_input(Robot r,Dynamic_window dw,position goal,Model m,evaluate_param p, nav_msgs::Path& localpath)
 {
-  /*
-  int elements_v = int((dw.max_v - dw.min_v) / m.v_reso);
-  int elements_w = int((dw.max_w - dw.min_w) / m.yawrate_reso);
-  double evaluation[elements_v][elements_w];
-  for(int i = 0; i < elements_v; i++){
-    for(int j = 0; j < elements_w; j++){
-      Robot _r;
-      _r.pose.x = r.pose.x;
-      _r.pose.y = r.pose.y;
-      _r.pose.yaw = r.pose.yaw;
-      double time = 0.0;
-      while(time <= p.predict_time){
-        _r.pose.x += i*cos(r.pose.yaw)*dt;
-        _r.pose.y += i*sin(r.pose.yaw)*dt;
-        _r.pose.yaw += j*dt;
-        time += dt;
-      }
-      evaluation[i][j] = (p.alpha * calc_heading() + p.beta * calc_distance() + p.gamma * i);
-    } 
-  }
-  double max_evaluation = evaluation[0][0];
-  int max_i = 0;
-  int max_j = 0;
-  for(int i=0;i<elements_v;i++){
-    for(int j=0;j<elements_w;j++){
-      if(max_evaluation < evaluation[i][j]){
-        max_evaluation = evaluation[i][j];
-        max_i = i;
-        max_j = j;
-      }
-    }
-  }
-  geometry_msgs::Twist velocity;
-  
-  return velocity;
-  */
-  // コメントアウト,ごめん意図を読めなかった
-  
-
-
   //変数設定
   position Xinit = {
     current_position.pose.position.x,
