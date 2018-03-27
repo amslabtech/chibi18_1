@@ -18,20 +18,20 @@ class Particle
 {
 public:
   Particle(void);
-  //(x,y,theta,cov_x,cov_y,cov_theta,map)
+  //パーティクルの初期化(x,y,theta,cov_x,cov_y,cov_theta,map)
   void init(float init_x,float init_y,float init_yaw,
                     float init_x_cov,float init_y_cov,float init_yaw_cov,
              nav_msgs::OccupancyGrid&);
-  //現在と１周期前のオドメトリ情報が引数
+  //動作更新(現在と１周期前のオドメトリ情報が引数)
   void update_motion(geometry_msgs::PoseStamped,geometry_msgs::PoseStamped);
-  //レーザデータとマップ情報が引数
+  //観測更新(レーザデータとマップ情報が引数)
   double update_measurement(sensor_msgs::LaserScan&,nav_msgs::OccupancyGrid&);
 
   geometry_msgs::PoseStamped pose;
   double weight;
 private:
 };
-
+//クオータニオンからヨーに変換する()
 double get_yaw(geometry_msgs::Quaternion q);
 
 nav_msgs::OccupancyGrid map_data;
@@ -41,25 +41,31 @@ geometry_msgs::PoseArray poses;
 geometry_msgs::PoseStamped current_pose;
 geometry_msgs::PoseStamped previous_pose;
 int sensor_data = 720;
+//パーティクルの数
 int N;
+//odometryの計算で使うパラメータ
 double alpha1;
 double alpha2;
 double alpha3;
 double alpha4;
+//観測更新で使うパラメータ
 double max_range;
 double z_hit;
 double z_random;
 double z_max;
 double sigma_hit;
+//初期データ
 double init_pose_x;
 double init_pose_y;
 double init_pose_yaw;
 double init_pose_x_cov;
 double init_pose_y_cov;
 double init_pose_yaw_cov;
+
 bool map_received = false;
 std::vector<Particle>  particles;
 
+//mapの受け取りとパーティクルの配置
 void map_callback(const nav_msgs::OccupancyGridConstPtr& msg)
 {
   std::cout << "map_received"  <<std::endl;
@@ -73,7 +79,7 @@ void map_callback(const nav_msgs::OccupancyGridConstPtr& msg)
   }
   poses.header.frame_id = "map";
 }
-
+//レーザのデータを受け取る
 void laser_callback(const sensor_msgs::LaserScanConstPtr& msg)
 {
   laser_data = *msg;
@@ -187,8 +193,8 @@ int main(int argc,char** argv)
       double sum_yaw=0;
       for(int i = 0;i<N;i++){
         poses.poses[i] = particles[i].pose.pose;
-        sum_x += particles[i].pose.pose.position.x;// * particles[i].weight;
-        sum_y += particles[i].pose.pose.position.y;// * particles[i].weight;
+        sum_x += particles[i].pose.pose.position.x;
+        sum_y += particles[i].pose.pose.position.y;
         sum_yaw += (fmod((get_yaw(particles[i].pose.pose.orientation)-get_yaw(particles[0].pose.pose.orientation) + M_PI),(2.0*M_PI)) + get_yaw(particles[0].pose.pose.orientation) - M_PI);// * particles[i].weight;
         //std::cout << "particle(x,y,theta)" << "(" << particles[i].pose.pose.position.x<< ","<< particles[i].pose.pose.position.y<<","<< get_yaw(particles[i].pose.pose.orientation) << ")" <<  std::endl;
       }
