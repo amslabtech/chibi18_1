@@ -41,6 +41,8 @@ geometry_msgs::PoseArray poses;
 geometry_msgs::PoseStamped current_pose;
 geometry_msgs::PoseStamped previous_pose;
 int sensor_data = 720;
+double w_slow = 0.0;
+double w_fast = 0.0;
 //パーティクルの数
 int N;
 //odometryの計算で使うパラメータ
@@ -63,6 +65,9 @@ double init_pose_yaw;
 double init_pose_x_cov;
 double init_pose_y_cov;
 double init_pose_yaw_cov;
+//AMCLで使うパラメータ
+double alpha_slow;
+double alpha_fast;
 
 bool map_received = false;
 std::vector<Particle>  particles;
@@ -105,6 +110,8 @@ int main(int argc,char** argv)
   local_nh.getParam("z_short", z_short);
   local_nh.getParam("sigma_hit", sigma_hit);
   local_nh.getParam("lambda_short", lambda_short);
+  local_nh.getParam("alpha_slow", alpha_slow);
+  local_nh.getParam("alpha_fast", alpha_fast);
   local_nh.getParam("init_pose_x",init_pose_x);
   local_nh.getParam("init_pose_y",init_pose_y);
   local_nh.getParam("init_pose_yaw",init_pose_yaw);
@@ -165,8 +172,28 @@ int main(int argc,char** argv)
        // std::cout << i << "  " <<particles[i].weight << std::endl;
         sum += particles[i].weight;
       }
-      for(int i=0;i<N;i++){
-        particles[i].weight /= sum;
+      if(sum >0.0){
+        double w_avg = 0.0;
+        for(int i=0;i<N;i++){
+          w_avg += particles[i].weight;
+          particles[i].weight /= sum;
+        }
+        w_avg /= N;
+        if(w_slow == 0.0){
+          w_slow = w_avg;
+        }else{
+          w_slow += alpha_slow * (w_avg - w_slow);
+        }
+        if(w_fast == 0.0){
+          w_fast = w_avg;
+        }else{
+          w_fast += alpha_fast *(w_avg - w_fast);
+        }
+        //std::cout << "(w_avg,w_slow,w_fast):("<< w_avg << ","  << w_slow  << ","  << w_fast << ")"  << std::endl;
+      }else{
+        for(int i = 0;i < N; i++){
+          particles[i].weight = 1.0/N;
+        }
       }
       std::cout << "measurement update"  <<std::endl;
       
@@ -177,17 +204,25 @@ int main(int argc,char** argv)
       for(int i=0;i<N;i++){
         if(particles[i].weight > particles[max_index].weight) max_index = i;
       }
-      
-      //std::cout << particles[max_index].weight <<std::endl;
+      double w_diff = 1.0 - w_fast / w_slow;
+      if(w_diff < 0.0) w_diff = 0.0; 
+      std::cout << "w_diff:" << w_diff  <<std::endl;
       double beta = 0.0;
       int index = rand1(mt) * N;
       for(int i=0;i<N;i++){
-        beta += rand1(mt) * 2 * particles[max_index].weight;
-        while(beta > particles[index].weight){
-          beta -= particles[index].weight;
-          index = (1 + index) % N;
+        if(rand1(mt) > w_diff){
+          beta += rand1(mt) * 2 * particles[max_index].weight;
+          while(beta > particles[index].weight){
+            beta -= particles[index].weight;
+            index = (1 + index) % N;
+          }
+          new_particles.push_back(particles[index]);
+        }else{
+          Particle p;
+          p.init(estimated_pose.pose.position.x,estimated_pose.pose.position.y,get_yaw(estimated_pose.pose.orientation),init_pose_x_cov,init_pose_y_cov,init_pose_yaw_cov,map_data);
+          new_particles.push_back(p);
+          std::cout << "add random particle" << std::endl;
         }
-        new_particles.push_back(particles[index]);
       }
       particles = new_particles;
       std::cout << "resampling"  <<std::endl;
@@ -206,7 +241,8 @@ int main(int argc,char** argv)
       //estimated_pose = particles[max_index].pose;
       estimated_pose.pose.position.x = sum_x/N;
       estimated_pose.pose.position.y = sum_y/N; 
-      estimated_pose.pose.orientation = tf::createQuaternionMsgFromYaw(sum_yaw/N); 
+      //estimated_pose.pose.orientation = tf::createQuaternionMsgFromYaw(sum_yaw/N); 
+      estimated_pose.pose.orientation = particles[max_index].pose.pose.orientation; 
       pose_pub.publish(estimated_pose);
       pose_array_pub.publish(poses);
       
@@ -435,6 +471,6 @@ double Particle::update_measurement(sensor_msgs::LaserScan& scan,
     }
   }
   weight *= p;
-  std::cout << weight <<std::endl;
+  //std::cout << weight <<std::endl;
   return weight;
 }
