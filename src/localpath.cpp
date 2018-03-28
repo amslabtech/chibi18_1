@@ -54,6 +54,7 @@ typedef struct
   double min_w;
 }Dynamic_window;
 
+position calc_goal(nav_msgs::Path,geometry_msgs::PoseStamped);
 Dynamic_window calc_dynamic_window(Robot,Model);
 nav_msgs::Path calc_trajectory(position  Xinit, double v, double w, evaluate_param param);
 geometry_msgs::Twist calc_final_input(Robot,Dynamic_window,position,Model,evaluate_param,nav_msgs::Path& localpath);
@@ -63,9 +64,12 @@ double max(double,double);
 double min(double,double);
 double get_yaw(geometry_msgs::Quaternion);
 
+bool pose_received = false;
+
 void pose_callback(const geometry_msgs::PoseStampedConstPtr& msg)
 {
   current_position = *msg;
+  pose_received = true;
 }
 
 void laser_callback(const sensor_msgs::LaserScanConstPtr& msg)
@@ -153,16 +157,30 @@ int main(int argc, char** argv)
   ros::Rate loop_rate(10);
 
   while(ros::ok()){
-    Dynamic_window dw = calc_dynamic_window(robot,model);
-    std::cout << dw.max_v << std::endl;
-    velocity.twist = calc_final_input(robot, dw, goal, model, param, local_path);
-
-    velocity_pub.publish(velocity);
-    local_path_pub.publish(local_path);
+    if(!laser_data.ranges.empty() && pose_received){
+      Dynamic_window dw = calc_dynamic_window(robot,model);
+      std::cout << "calc dynamic window" << std::endl;
+      
+      goal = calc_goal(global_path,current_position);
+      std::cout << "calc goal" << std::endl;
+      
+      velocity.twist = calc_final_input(robot, dw, goal, model, param, local_path);
+      std::cout << "calc final_input" << std::endl;
+      
+      velocity_pub.publish(velocity);
+      std::cout << velocity << std::endl;
+      local_path_pub.publish(local_path);
+    }
     ros::spinOnce();
     loop_rate.sleep();
   }
   return 0;
+}
+
+position calc_goal(nav_msgs::Path global_path,geometry_msgs::PoseStamped current_position)
+{
+  position p;
+  return p;
 }
 
 Dynamic_window calc_dynamic_window(Robot r,Model m)
@@ -197,7 +215,8 @@ nav_msgs::Path calc_trajectory(
   nav_msgs::Path traj; //trajectory... 軌跡, 
   position X = Xinit;
 
-  int N = param.predict_time / dt;
+  int N = (int)(param.predict_time / dt);
+  traj.poses.resize(N);
   for(int i=1; i<N; i++){
     X.x = X.x + v*cos(X.yaw)*dt;
     X.y = X.y + v*sin(X.yaw)*dt;
@@ -207,11 +226,10 @@ nav_msgs::Path calc_trajectory(
     traj.poses[i].pose.position.y = X.y;
     traj.poses[i].pose.orientation = tf::createQuaternionMsgFromYaw(X.yaw);
   }
+  //std::cout << traj.poses[N-1].pose << std::endl;
 
   return traj;
 }
-
-
 
 geometry_msgs::Twist calc_final_input(Robot r,Dynamic_window dw,position goal,Model m,evaluate_param p, nav_msgs::Path& localpath)
 {
@@ -221,16 +239,14 @@ geometry_msgs::Twist calc_final_input(Robot r,Dynamic_window dw,position goal,Mo
     current_position.pose.position.y,
     get_yaw(current_position.pose.orientation)
   };
+  //std::cout << Xinit.x << "," << Xinit.y << "," << Xinit.yaw << std::endl;
   double min_cost = 10000.0;
   double best_v = 0.0;
   double best_w = 0.0;
   nav_msgs::Path best_traj;
-
-  //dynamic window 内の速度をサンプリングし, 最低コストの出力を計算
   for(double v = dw.min_v; v <= dw.max_v; v+=m.v_reso){
     for(double w = dw.min_w; w <= dw.max_w; w+=m.yawrate_reso){
       nav_msgs::Path traj = calc_trajectory(Xinit, v, w, p);
-
       double cost = 
           p.alpha * calc_heading(traj, goal, p) 
         + p.beta * calc_distance() 
@@ -256,7 +272,7 @@ geometry_msgs::Twist calc_final_input(Robot r,Dynamic_window dw,position goal,Mo
 
 double calc_heading(nav_msgs::Path traj, position goal, evaluate_param param)
 {
-  int N = param.predict_time / dt;
+  int N = (int)(param.predict_time / dt);
   double dx = traj.poses[N-1].pose.position.x - goal.x;
   double dy = traj.poses[N-1].pose.position.y - goal.y;
   double cost = sqrt( dx*dx + dy*dy);
