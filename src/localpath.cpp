@@ -180,6 +180,16 @@ int main(int argc, char** argv)
 position calc_goal(nav_msgs::Path global_path,geometry_msgs::PoseStamped current_position)
 {
   position p;
+  int index = 0;
+
+  /*
+
+
+  */
+
+  p.x = global_path.poses[index].pose.position.x;
+  p.y = global_path.poses[index].pose.position.y;
+  p.yaw = get_yaw(global_path.poses[index].pose.orientation);
   return p;
 }
 
