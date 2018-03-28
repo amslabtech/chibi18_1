@@ -53,7 +53,9 @@ double max_range;
 double z_hit;
 double z_random;
 double z_max;
+double z_short;
 double sigma_hit;
+double lambda_short;
 //初期データ
 double init_pose_x;
 double init_pose_y;
@@ -100,7 +102,9 @@ int main(int argc,char** argv)
   local_nh.getParam("z_hit", z_hit);
   local_nh.getParam("z_random", z_random);
   local_nh.getParam("z_max", z_max);
+  local_nh.getParam("z_short", z_short);
   local_nh.getParam("sigma_hit", sigma_hit);
+  local_nh.getParam("lambda_short", lambda_short);
   local_nh.getParam("init_pose_x",init_pose_x);
   local_nh.getParam("init_pose_y",init_pose_y);
   local_nh.getParam("init_pose_yaw",init_pose_yaw);
@@ -408,19 +412,29 @@ void Particle::update_motion(geometry_msgs::PoseStamped current,
 double Particle::update_measurement(sensor_msgs::LaserScan& scan,
                                   nav_msgs::OccupancyGrid& map)
 {
-  double  w;
-  double xz,yz,dist;
-  double error = 0.0;
+  double p=1.0;
+  double pz,z;
+  double obs_range,obs_bearing;
+  double map_range;
   for(int i = 0;i<sensor_data;i++){
-    double theta = (2.0*i/sensor_data-1.0)*(M_PI/2.0);
-    if(scan.ranges[i] <= max_range){
-      xz = pose.pose.position.x;
-      yz = pose.pose.position.y;
-      dist = map_calc_range(xz,yz,get_yaw(pose.pose.orientation)+theta);
-      error += (scan.ranges[i] - dist)*(scan.ranges[i] -dist);
-     // std::cout << i << "  " << dist << " , "<< error <<std::endl;
+    obs_range = scan.ranges[i];
+    obs_bearing = (2.0*i/sensor_data-1.0)*(M_PI/2.0);
+    map_range = map_calc_range(pose.pose.position.x,pose.pose.position.y,get_yaw(pose.pose.orientation)+obs_bearing);
+    pz = 0.0;
+    z = obs_range - map_range;
+    pz += z_hit * exp(-(z*z)/(2*sigma_hit*sigma_hit));
+    p += pz*pz*pz;
+    if(z < 0){
+      pz += z_short *lambda_short * exp(-lambda_short * obs_range);
+    }
+    if(obs_range == max_range){
+      pz += z_max *1.0;
+    }
+    if(obs_range < max_range){
+      pz += z_random * 1.0/max_range;
     }
   }
-  w = exp(-error/(sigma_hit*sigma_hit*2));
-  return w;
+  weight *= p;
+  std::cout << weight <<std::endl;
+  return weight;
 }
