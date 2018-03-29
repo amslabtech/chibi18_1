@@ -324,6 +324,7 @@ double calc_distance(nav_msgs::Path traj, position current, evaluate_param param
 {
   position object;
   double distance = 20.0;
+  double cost = 0.0;
   int N = (int)(param.predict_time / dt);
   for(int i = 0; i<720;i++){
     if(laser_data.ranges[i] < laser_data.range_min || laser_data.ranges[i] > laser_data.range_max) continue;
@@ -331,24 +332,20 @@ double calc_distance(nav_msgs::Path traj, position current, evaluate_param param
     double obj_bearing = (2.0*i/sensor_data-1.0)*(M_PI/2.0);
     object.x = laser_data.ranges[i]*cos(current.yaw + obj_bearing) + current.x;
     object.y = laser_data.ranges[i]*sin(current.yaw + obj_bearing) + current.y;
-    double dx = traj.poses[N-1].pose.position.x - object.x;
-    double dy = traj.poses[N-1].pose.position.y - object.y;
-    double r = sqrt(dx*dx + dy*dy);
-   // std::cout << r <<std::endl;
-    //if(r<=_robot_radius){
-     // std::cout << "collision" << std::endl;
-      //return -1;
-    //}
-    if(r < _robot_radius){
-      return 99999;
-    }
-    if(r < distance){
-      distance = r;
-    }
+    for(int j=0; j<N; j++){
+      double dx = traj.poses[j].pose.position.x - object.x;
+      double dy = traj.poses[j].pose.position.y - object.y;
+      double r = sqrt(dx*dx + dy*dy);
+      // std::cout << r <<std::endl;
+     
+      if(r < distance){
+        distance = r;
+      }
+    } 
   }
-  double cost = 1.0/distance;
-  //std::cout << "distance cost : "  << cost << std::endl;
-  return cost;
+	if(distance < _robot_radius)
+		return INFINITY;
+	else return  1./distance;
 }
 
 double calc_velocity(Dynamic_window dw, double v)
