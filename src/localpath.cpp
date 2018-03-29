@@ -184,8 +184,10 @@ int main(int argc, char** argv)
       std::cout << "calc final_input" << std::endl;
       
       velocity_pub.publish(velocity.twist);
-      std::cout << velocity.twist.linear.x << " , " << velocity.twist.angular.z << std::endl;
+      //std::cout << velocity.twist.linear.x << " , " << velocity.twist.angular.z << std::endl;
+      local_path.header.frame_id ="map";
       local_path_pub.publish(local_path);
+      std::cout << local_path.poses.size() << std::endl;
     }
     ros::spinOnce();
     loop_rate.sleep();
@@ -208,7 +210,7 @@ position calc_goal(nav_msgs::Path global_path,geometry_msgs::PoseStamped current
       index = i;
     }
   }
-  index = index + 40;
+  index = index + 30;
   p.x = global_path.poses[index].pose.position.x;
   p.y = global_path.poses[index].pose.position.y;
   p.yaw = get_yaw(global_path.poses[index].pose.orientation);
