@@ -179,6 +179,8 @@ int main(int argc, char** argv)
       //std::cout << local_goal  << std::endl;
      
       velocity.twist = calc_final_input(robot, dw, goal, model, param, local_path);
+      robot.v = velocity.twist.linear.x;
+      robot.w = velocity.twist.angular.z;
       std::cout << "calc final_input" << std::endl;
       
       velocity_pub.publish(velocity.twist);
