@@ -9,8 +9,8 @@
     <param name="dt" value="0.5"/>
     <param name="predict_time" value="2.0"/>
     <param name="robot_radius" value="0.25"/>
-    <param name="alpha" value="0.1"/>
-    <param name="beta" value="0.1"/>
+    <param name="alpha" value="1"/>
+    <param name="beta" value="1"/>
     <param name="gamma" value="0.0"/>
   </node>
 </launch>
