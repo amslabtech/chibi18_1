@@ -62,6 +62,7 @@ nav_msgs::Path calc_trajectory(position  Xinit, double v, double w, evaluate_par
 geometry_msgs::Twist calc_final_input(Robot,Dynamic_window,position,Model,evaluate_param,nav_msgs::Path& localpath);
 double calc_heading(nav_msgs::Path , position , evaluate_param );
 double calc_distance(nav_msgs::Path , position, evaluate_param);
+double calc_velocity(Dynamic_window ,double);
 double max(double,double);
 double min(double,double);
 double get_yaw(geometry_msgs::Quaternion);
@@ -160,7 +161,6 @@ int main(int argc, char** argv)
   robot.v = 0.0;
   robot.w = 0.0; 
 
-  
   ros::Rate loop_rate(10);
 
   while(ros::ok()){
@@ -263,6 +263,7 @@ nav_msgs::Path calc_trajectory(
 
 geometry_msgs::Twist calc_final_input(Robot r,Dynamic_window dw,position goal,Model m,evaluate_param p, nav_msgs::Path& localpath)
 {
+  static uint64_t counter = 0;
   //変数設定
   position Xinit = {
     current_position.pose.position.x,
@@ -277,8 +278,17 @@ geometry_msgs::Twist calc_final_input(Robot r,Dynamic_window dw,position goal,Mo
   for(double v = dw.min_v; v <= dw.max_v; v+=m.v_reso){
     for(double w = dw.min_w; w <= dw.max_w; w+=m.yawrate_reso){
       nav_msgs::Path traj = calc_trajectory(Xinit, v, w, p);
-      double cost = p.alpha * calc_heading(traj, goal, p) + p.gamma * v;
-      if(calc_distance(traj,Xinit,p)>0) cost += p.beta * calc_distance(traj, Xinit,p); 
+
+      double a = calc_heading(traj, goal, p);
+      double b = calc_distance(traj, Xinit,p);
+      double c = calc_velocity(dw, v);
+      double cost = 
+         p.alpha * a
+       + p.beta * b
+       + p.gamma * c;
+     if(!counter%100)
+      std::cout << "heading:" << a << "\tdistance:" << b << "velocity:" << c << std::endl; 
+
       if(cost <= min_cost){
         min_cost = cost;
         best_v = v;
@@ -293,6 +303,7 @@ geometry_msgs::Twist calc_final_input(Robot r,Dynamic_window dw,position goal,Mo
   vel.angular.z = best_w;
 
   localpath = best_traj;
+  counter++;
   return vel;
 
 }
@@ -336,6 +347,11 @@ double calc_distance(nav_msgs::Path traj, position current, evaluate_param param
   double cost = 1.0/distance;
   //std::cout << "distance cost : "  << cost << std::endl;
   return cost;
+}
+
+double calc_velocity(Dynamic_window dw, double v)
+{
+  return dw.max_v - v;
 }
 
 double max(double a,double b)
