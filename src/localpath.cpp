@@ -210,7 +210,7 @@ position calc_goal(nav_msgs::Path global_path,geometry_msgs::PoseStamped current
       index = i;
     }
   }
-  index = index + 30;
+  index = index + 40;
   p.x = global_path.poses[index].pose.position.x;
   p.y = global_path.poses[index].pose.position.y;
   p.yaw = get_yaw(global_path.poses[index].pose.orientation);
