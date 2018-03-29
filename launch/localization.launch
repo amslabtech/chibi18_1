@@ -1,27 +1,25 @@
 <launch>
-  <arg name="map_file" default="$(find chibi_challenge)/mapdata/map_d1.yaml"/>
-  <node pkg="map_server" name="map_server" type="map_server" args="$(arg map_file)" output="screen"/>
 
   <node pkg="chibi_challenge" name="mcl" type="mcl" output="screen">
     <param name="N" value="1000"/>
-    <param name="alpha1" value="0.5"/>
-    <param name="alpha2" value="0.5"/>
-    <param name="alpha3" value="0.2"/>
-    <param name="alpha4" value="0.2"/>
+    <param name="alpha1" value="0.3"/>
+    <param name="alpha2" value="0.3"/>
+    <param name="alpha3" value="0.1"/>
+    <param name="alpha4" value="0.1"/>
     <param name="max_range" value="20"/>
     <param name="z_hit" value="0.5"/>
-    <param name="z_random" value="0.45"/>
+    <param name="z_random" value="0.4"/>
     <param name="z_max" value="0.05"/>
     <param name="z_short" value="0.05"/>
-    <param name="sigma_hit" value="5"/>
+    <param name="sigma_hit" value="3"/>
     <param name="lambda_short" value="0.1"/>
     <param name="alpha_slow" value="0.001"/>
     <param name="alpha_fast" value="0.1"/>
     <param name="init_pose_x" value="0.0"/>
     <param name="init_pose_y" value="0.0"/>
     <param name="init_pose_yaw" value="0.0"/>
-    <param name="init_pose_x_cov" value="0.5"/>
-    <param name="init_pose_y_cov" value="0.5"/>
+    <param name="init_pose_x_cov" value="0.1"/>
+    <param name="init_pose_y_cov" value="0.1"/>
     <param name="init_pose_yaw_cov" value="0.3"/>
   </node>
 
