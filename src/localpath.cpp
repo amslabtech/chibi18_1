@@ -54,17 +54,20 @@ typedef struct
   double min_w;
 }Dynamic_window;
 
+const int sensor_data = 720;
+
 position calc_goal(nav_msgs::Path,geometry_msgs::PoseStamped);
 Dynamic_window calc_dynamic_window(Robot,Model);
 nav_msgs::Path calc_trajectory(position  Xinit, double v, double w, evaluate_param param);
 geometry_msgs::Twist calc_final_input(Robot,Dynamic_window,position,Model,evaluate_param,nav_msgs::Path& localpath);
-double calc_heading(nav_msgs::Path traj, position goal, evaluate_param param);
-double calc_distance();
+double calc_heading(nav_msgs::Path , position , evaluate_param );
+double calc_distance(nav_msgs::Path , position, evaluate_param);
 double max(double,double);
 double min(double,double);
 double get_yaw(geometry_msgs::Quaternion);
 
 bool pose_received = false;
+bool global_path_received = false;
 
 void pose_callback(const geometry_msgs::PoseStampedConstPtr& msg)
 {
@@ -80,6 +83,7 @@ void laser_callback(const sensor_msgs::LaserScanConstPtr& msg)
 void path_callback(const nav_msgs::PathConstPtr& msg)
 {
   global_path = *msg;
+  global_path_received = true;
 }
 
 double _max_speed;
@@ -116,15 +120,18 @@ int main(int argc, char** argv)
 
   ros::Subscriber pose_sub = nh.subscribe("/mcl_pose", 100, pose_callback);
   ros::Subscriber laser_sub = nh.subscribe("/scan", 100, laser_callback);
-  ros::Subscriber global_path_sub = nh.subscribe("global_path",100,path_callback);
+  ros::Subscriber global_path_sub = nh.subscribe("/chibi18/global_path",100,path_callback);
 
   ros::Publisher velocity_pub = nh.advertise<geometry_msgs::Twist>("/cmd_vel", 100);
   ros::Publisher local_path_pub = nh.advertise<nav_msgs::Path>("/local_path", 100);
+  ros::Publisher local_goal_pub = nh.advertise<geometry_msgs::PoseStamped>("/local_goal",100);
 
   geometry_msgs::TwistStamped velocity;
   velocity.header.frame_id = "base_link";
   nav_msgs::Path local_path;
   local_path.header.frame_id = "map";
+  geometry_msgs::PoseStamped local_goal;
+  local_goal.header.frame_id = "map";
 
   position goal;
   goal.x = 3.0;
@@ -157,18 +164,25 @@ int main(int argc, char** argv)
   ros::Rate loop_rate(10);
 
   while(ros::ok()){
-    if(!laser_data.ranges.empty() && pose_received){
+    if(!laser_data.ranges.empty() && pose_received && global_path_received){
       Dynamic_window dw = calc_dynamic_window(robot,model);
       std::cout << "calc dynamic window" << std::endl;
       
-      goal = calc_goal(global_path,current_position);
-      std::cout << "calc goal" << std::endl;
-      
+   //   if(global_path_received){
+        goal = calc_goal(global_path,current_position);
+        std::cout << "calc goal" << std::endl;
+     // }
+      local_goal.pose.position.x = goal.x;
+      local_goal.pose.position.y = goal.y;
+      local_goal.pose.orientation = tf::createQuaternionMsgFromYaw(goal.yaw);
+      local_goal_pub.publish(local_goal);
+      //std::cout << local_goal  << std::endl;
+     
       velocity.twist = calc_final_input(robot, dw, goal, model, param, local_path);
       std::cout << "calc final_input" << std::endl;
       
-      velocity_pub.publish(velocity);
-      std::cout << velocity << std::endl;
+      velocity_pub.publish(velocity.twist);
+      std::cout << velocity.twist.linear.x << " , " << velocity.twist.angular.z << std::endl;
       local_path_pub.publish(local_path);
     }
     ros::spinOnce();
@@ -181,12 +195,18 @@ position calc_goal(nav_msgs::Path global_path,geometry_msgs::PoseStamped current
 {
   position p;
   int index = 0;
-
-  /*
-
-
-  */
-
+  double dis =0.0;
+  double min_dis = 10.0;
+  for(int i = 0;i< global_path.poses.size();i++){
+    double dx = current_position.pose.position.x-global_path.poses[i].pose.position.x;
+    double dy = current_position.pose.position.y-global_path.poses[i].pose.position.y;
+    dis = dx*dx + dy*dy;
+    if(dis < min_dis){
+      min_dis = dis;
+      index = i;
+    }
+  }
+  index = index + 40;
   p.x = global_path.poses[index].pose.position.x;
   p.y = global_path.poses[index].pose.position.y;
   p.yaw = get_yaw(global_path.poses[index].pose.orientation);
@@ -257,11 +277,8 @@ geometry_msgs::Twist calc_final_input(Robot r,Dynamic_window dw,position goal,Mo
   for(double v = dw.min_v; v <= dw.max_v; v+=m.v_reso){
     for(double w = dw.min_w; w <= dw.max_w; w+=m.yawrate_reso){
       nav_msgs::Path traj = calc_trajectory(Xinit, v, w, p);
-      double cost = 
-          p.alpha * calc_heading(traj, goal, p) 
-        + p.beta * calc_distance() 
-        + p.gamma * v;
-
+      double cost = p.alpha * calc_heading(traj, goal, p) + p.gamma * v;
+      if(calc_distance(traj,Xinit,p)>0) cost += p.beta * calc_distance(traj, Xinit,p); 
       if(cost <= min_cost){
         min_cost = cost;
         best_v = v;
@@ -270,7 +287,7 @@ geometry_msgs::Twist calc_final_input(Robot r,Dynamic_window dw,position goal,Mo
       }
     }
   }
-
+  std::cout << "min_cost : " << min_cost << std::endl;
   geometry_msgs::Twist vel;
   vel.linear.x = best_v;
   vel.angular.z = best_w;
@@ -286,12 +303,37 @@ double calc_heading(nav_msgs::Path traj, position goal, evaluate_param param)
   double dx = traj.poses[N-1].pose.position.x - goal.x;
   double dy = traj.poses[N-1].pose.position.y - goal.y;
   double cost = sqrt( dx*dx + dy*dy);
+  //std::cout << "heading cost : "  << cost << std::endl;
   return cost;
 }
 
-double calc_distance()
+double calc_distance(nav_msgs::Path traj, position current, evaluate_param param)
 {
-  return 0;
+  position object;
+  double distance = 20.0;
+  int N = (int)(param.predict_time / dt);
+  for(int i = 200; i<520;i++){
+    double obj_bearing = (2.0*i/sensor_data-1.0)*(M_PI/2.0);
+    object.x = laser_data.ranges[i]*cos(current.yaw + obj_bearing) + current.x;
+    object.y = laser_data.ranges[i]*sin(current.yaw + obj_bearing) + current.y;
+    double dx = traj.poses[N-1].pose.position.x - object.x;
+    double dy = traj.poses[N-1].pose.position.y - object.y;
+    double r = sqrt(dx*dx + dy*dy);
+   // std::cout << r <<std::endl;
+    //if(r<=_robot_radius){
+     // std::cout << "collision" << std::endl;
+      //return -1;
+    //}
+    if(r < _robot_radius){
+      return -1;
+    }
+    if(r < distance){
+      distance = r;
+    }
+  }
+  double cost = 1.0/distance;
+  //std::cout << "distance cost : "  << cost << std::endl;
+  return cost;
 }
 
 double max(double a,double b)
