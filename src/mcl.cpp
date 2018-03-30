@@ -139,20 +139,20 @@ int main(int argc,char** argv)
 
   while(ros::ok())
   {
-    if(map_received){
+    if(map_received && !laser_data.ranges.empty()){
       estimated_pose.header.frame_id = "map";
       poses.header.frame_id = "map";
 
       tf::StampedTransform transform;
+	  transform = tf::StampedTransform(tf::Transform(tf::createQuaternionFromYaw(0.0), tf::Vector3(0.0, 0.0, 0)), ros::Time::now(), "odom", "base_link");
       try{
-        ros::Time now = ros::Time(0);
-        listener.waitForTransform("odom", "base_link",now, ros::Duration(1.0));
-        listener.lookupTransform("odom", "base_link", now, transform);
+        listener.waitForTransform("odom", "base_link",ros::Time(0), ros::Duration(1.0));
+        listener.lookupTransform("odom", "base_link", ros::Time(0), transform);
       }
       catch(tf::TransformException &ex){
         ROS_ERROR("%s",ex.what());
         ros::Duration(1.0).sleep();
-        continue;
+        //continue;
       }
       previous_pose = current_pose;
       current_pose.pose.position.x = transform.getOrigin().x();
@@ -247,16 +247,20 @@ int main(int argc,char** argv)
       pose_array_pub.publish(poses);
       
      // std::cout << "estimated_pose(x,y,theta)" << "(" << estimated_pose.pose.position.x<< ","<< estimated_pose.pose.position.y<<","<< get_yaw(estimated_pose.pose.orientation) << ")" <<  std::endl;
-      
-      tf::StampedTransform map_transform;
-      map_transform.setOrigin(tf::Vector3(estimated_pose.pose.position.x, estimated_pose.pose.position.y, 0.0));
-      map_transform.setRotation(tf::Quaternion(0, 0, get_yaw(estimated_pose.pose.orientation),1));
-      tf::Stamped<tf::Pose> tf_stamped(map_transform.inverse(), laser_data.header.stamp, "base_link");
-      tf::Stamped<tf::Pose> odom_to_map; 
-      listener.transformPose("odom", tf_stamped, odom_to_map);
-      tf::Transform latest_tf = tf::Transform(tf::Quaternion(odom_to_map.getRotation()), tf::Point(odom_to_map.getOrigin()));
-      temp_tf_stamped = tf::StampedTransform(latest_tf.inverse(), laser_data.header.stamp, "map", "odom");
-      map_broadcaster.sendTransform(temp_tf_stamped);
+      try{ 
+      	tf::StampedTransform map_transform;
+      	map_transform.setOrigin(tf::Vector3(estimated_pose.pose.position.x, estimated_pose.pose.position.y, 0.0));
+      	map_transform.setRotation(tf::Quaternion(0, 0, get_yaw(estimated_pose.pose.orientation),1));
+      	tf::Stamped<tf::Pose> tf_stamped(map_transform.inverse(), laser_data.header.stamp, "base_link");
+      	tf::Stamped<tf::Pose> odom_to_map; 
+      	listener.transformPose("odom", tf_stamped, odom_to_map);
+      	tf::Transform latest_tf = tf::Transform(tf::Quaternion(odom_to_map.getRotation()), tf::Point(odom_to_map.getOrigin()));
+      	temp_tf_stamped = tf::StampedTransform(latest_tf.inverse(), laser_data.header.stamp, "map", "odom");
+        map_broadcaster.sendTransform(temp_tf_stamped);
+	  }catch(tf::TransformException ex){
+		std::cout << "braodcast error!" << std::endl;
+	  	std::cout << ex.what() << std::endl;
+	  }
     }
     ros::spinOnce();
     loop_rate.sleep();
@@ -450,7 +454,8 @@ double Particle::update_measurement(sensor_msgs::LaserScan& scan,
 {
   double p=1.0;
   double pz,z;
-  double obs_range,obs_bearing;
+  double obs_range = 0.0;
+  double obs_bearing = 0.0;
   double map_range;
   for(int i = 0;i<sensor_data;i++){
     obs_range = scan.ranges[i];
