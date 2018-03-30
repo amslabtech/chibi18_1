@@ -135,7 +135,7 @@ int main(int argc, char** argv)
   local_goal.header.frame_id = "map";
 
   position goal;
-  goal.x = 3.0;
+  goal.x = 0.0;
   goal.y = 0.0;
   goal.yaw = 0.0;
   std::cout << "goal:(" << goal.x  << "," << goal.y << "," << goal.yaw << ")" << std::endl;
