@@ -14,7 +14,7 @@ geometry_msgs::PoseStamped current_position;
 sensor_msgs::LaserScan laser_data;
 nav_msgs::Path global_path;
 
-typedef struct 
+typedef struct
 {
   double x;//[m]
   double y;//[m]
@@ -99,6 +99,7 @@ double _robot_radius;
 double _alpha;
 double _beta;
 double _gamma;
+double local_goal_point;
 
 int main(int argc, char** argv)
 {
@@ -118,6 +119,7 @@ int main(int argc, char** argv)
   local_nh.getParam("alpha", _alpha);
   local_nh.getParam("beta", _beta);
   local_nh.getParam("gamma", _gamma);
+  local_nh.getParam("local_goal_point", local_goal_point);
 
   ros::Subscriber pose_sub = nh.subscribe("/mcl_pose", 100, pose_callback);
   ros::Subscriber laser_sub = nh.subscribe("/scan", 100, laser_callback);
@@ -139,7 +141,7 @@ int main(int argc, char** argv)
   goal.y = 0.0;
   goal.yaw = 0.0;
   std::cout << "goal:(" << goal.x  << "," << goal.y << "," << goal.yaw << ")" << std::endl;
-  
+
   Model model;
   model.max_speed = _max_speed;
   model.max_yawrate = _max_yawrate;
@@ -147,19 +149,19 @@ int main(int argc, char** argv)
   model.max_dyawrate = _max_dyawrate;
   model.v_reso = _v_reso;
   model.yawrate_reso = _yawrate_reso;
-  
+
   evaluate_param param;
   param.alpha = _alpha;
   param.beta = _beta;
   param.gamma = _gamma;
   param.predict_time = _predict_time;
-  
+
   Robot robot;
   robot.pose.x = 0.0;
   robot.pose.y = 0.0;
   robot.pose.yaw = M_PI / 2.0;
   robot.v = 0.0;
-  robot.w = 0.0; 
+  robot.w = 0.0;
 
   ros::Rate loop_rate(10);
 
@@ -167,7 +169,7 @@ int main(int argc, char** argv)
     if(!laser_data.ranges.empty() && pose_received && global_path_received){
       Dynamic_window dw = calc_dynamic_window(robot,model);
       std::cout << "calc dynamic window" << std::endl;
-      
+
    //   if(global_path_received){
         goal = calc_goal(global_path,current_position);
         std::cout << "calc goal" << std::endl;
@@ -177,12 +179,12 @@ int main(int argc, char** argv)
       local_goal.pose.orientation = tf::createQuaternionMsgFromYaw(goal.yaw);
       local_goal_pub.publish(local_goal);
       //std::cout << local_goal  << std::endl;
-     
+
       velocity.twist = calc_final_input(robot, dw, goal, model, param, local_path);
       robot.v = velocity.twist.linear.x;
       robot.w = velocity.twist.angular.z;
       std::cout << "calc final_input" << std::endl;
-      
+
       velocity_pub.publish(velocity.twist);
       //std::cout << velocity.twist.linear.x << " , " << velocity.twist.angular.z << std::endl;
       local_path.header.frame_id ="map";
@@ -210,7 +212,7 @@ position calc_goal(nav_msgs::Path global_path,geometry_msgs::PoseStamped current
       index = i;
     }
   }
-  index = index + 40;
+  index = index + local_goal_point / 0.05;
   p.x = global_path.poses[index].pose.position.x;
   p.y = global_path.poses[index].pose.position.y;
   p.yaw = get_yaw(global_path.poses[index].pose.orientation);
@@ -230,7 +232,7 @@ Dynamic_window calc_dynamic_window(Robot r,Model m)
   Vd.min_v = r.v - m.max_accel * dt;
   Vd.max_w = r.w + m.max_dyawrate * dt;
   Vd.min_w = r.w - m.max_dyawrate * dt;
-  
+
   Dynamic_window Dw;
   Dw.max_v = min(Vs.max_v,Vd.max_v);
   Dw.min_v = max(Vs.min_v,Vd.min_v);
@@ -243,10 +245,10 @@ nav_msgs::Path calc_trajectory(
    position  Xinit,     //ロボット現在位置, ここからlocal path が伸びる
    double v,            //直進方向速度
    double w,            //回転角速度
-  evaluate_param param  
+  evaluate_param param
   )
 {
-  nav_msgs::Path traj; //trajectory... 軌跡, 
+  nav_msgs::Path traj; //trajectory... 軌跡,
   position X = Xinit;
 
   int N = (int)(param.predict_time / dt);
@@ -286,12 +288,12 @@ geometry_msgs::Twist calc_final_input(Robot r,Dynamic_window dw,position goal,Mo
       double a = calc_heading(traj, goal, p);
       double b = calc_distance(traj, Xinit,p);
       double c = calc_velocity(dw, v);
-      double cost = 
+      double cost =
          p.alpha * a
        + p.beta * b
        + p.gamma * c;
      if(!counter%100)
-      std::cout << "heading:" << a << "\tdistance:" << b << "velocity:" << c << std::endl; 
+      std::cout << "heading:" << a << "\tdistance:" << b << "velocity:" << c << std::endl;
 
       if(cost <= min_cost){
         min_cost = cost;
@@ -339,11 +341,11 @@ double calc_distance(nav_msgs::Path traj, position current, evaluate_param param
       double dy = traj.poses[j].pose.position.y - object.y;
       double r = sqrt(dx*dx + dy*dy);
       // std::cout << r <<std::endl;
-     
+
       if(r < distance){
         distance = r;
       }
-    } 
+    }
   }
 	if(distance < _robot_radius)
 		return INFINITY;
@@ -376,4 +378,3 @@ double get_yaw(geometry_msgs::Quaternion q)
   tf::Matrix3x3(quat).getRPY(r, p, y);
   return y;
 }
-
