@@ -119,7 +119,7 @@ int main(int argc,char** argv)
   local_nh.getParam("init_pose_y_cov",init_pose_y_cov);
   local_nh.getParam("init_pose_yaw_cov",init_pose_yaw_cov);
   ros::Publisher pose_pub = nh.advertise
-                      <geometry_msgs::PoseStamped>("/mcl_pose",100);
+                      <geometry_msgs::PoseWithCovarianceStamped>("/chibi18/estimated_pose",100);
   ros::Publisher pose_array_pub = nh.advertise<geometry_msgs::PoseArray>("/poses",100);
 
   ros::Subscriber map_sub = nh.subscribe("/map",100,map_callback);
@@ -243,7 +243,10 @@ int main(int argc,char** argv)
       estimated_pose.pose.position.y = sum_y/N; 
       //estimated_pose.pose.orientation = tf::createQuaternionMsgFromYaw(sum_yaw/N); 
       estimated_pose.pose.orientation = particles[max_index].pose.pose.orientation; 
-      pose_pub.publish(estimated_pose);
+      geometry_msgs::PoseWithCovarianceStamped _estimated_pose;
+      _estimated_pose.pose.pose = estimated_pose.pose;
+	  _estimated_pose.header = estimated_pose.header;
+	  pose_pub.publish(_estimated_pose);
       pose_array_pub.publish(poses);
       
      // std::cout << "estimated_pose(x,y,theta)" << "(" << estimated_pose.pose.position.x<< ","<< estimated_pose.pose.position.y<<","<< get_yaw(estimated_pose.pose.orientation) << ")" <<  std::endl;
