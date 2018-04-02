@@ -63,7 +63,7 @@ nav_msgs::Path calc_trajectory(position  Xinit, double v, double w, evaluate_par
 geometry_msgs::Twist calc_final_input(Robot,Dynamic_window,position,Model,evaluate_param,nav_msgs::Path& localpath);
 double calc_heading(nav_msgs::Path , position , evaluate_param );
 double calc_distance(nav_msgs::Path , position, evaluate_param);
-double calc_velocity(Dynamic_window ,double);
+double calc_velocity(Dynamic_window ,double, double);
 double max(double,double);
 double min(double,double);
 double get_yaw(geometry_msgs::Quaternion);
@@ -290,7 +290,7 @@ geometry_msgs::Twist calc_final_input(Robot r,Dynamic_window dw,position goal,Mo
       nav_msgs::Path traj = calc_trajectory(Xinit, v, w, p);
       double a = calc_heading(traj, goal, p);
       double b = calc_distance(traj, Xinit,p);
-      double c = calc_velocity(dw, v);
+      double c = calc_velocity(dw, v, w);
       double cost =
          p.alpha * a
        + p.beta * b
@@ -323,6 +323,12 @@ double calc_heading(nav_msgs::Path traj, position goal, evaluate_param param)
   double dx = traj.poses[N-1].pose.position.x - goal.x;
   double dy = traj.poses[N-1].pose.position.y - goal.y;
   double cost = sqrt( dx*dx + dy*dy);
+
+  float dx_max = traj.poses[0].pose.position.x - goal.x;
+  float dy_max = traj.poses[0].pose.position.y - goal.y;
+  float cost_max = sqrt(dx_max*dx_max + dy_max*dy_max);
+  cost /= cost_max;
+
   //std::cout << "heading cost : "  << cost << std::endl;
   return cost;
 }
@@ -334,7 +340,10 @@ double calc_distance(nav_msgs::Path traj, position current, evaluate_param param
   double cost = 0.0;
   int N = (int)(param.predict_time / dt);
   for(int i = 0; i<720;i++){
-    if(laser_data.ranges[i] < laser_data.range_min || laser_data.ranges[i] > laser_data.range_max) continue;
+    if(laser_data.ranges[i] < laser_data.range_min 
+        || laser_data.ranges[i] > laser_data.range_max
+        || i%20!=0 )
+         continue;
 
     double obj_bearing = (2.0*i/sensor_data-1.0)*(M_PI/2.0);
     object.x = laser_data.ranges[i]*cos(current.yaw + obj_bearing) + current.x;
@@ -350,14 +359,18 @@ double calc_distance(nav_msgs::Path traj, position current, evaluate_param param
       }
     }
   }
+  std::cout << "distance : " << distance << std::endl;
 	if(distance < _robot_radius)
 		return INFINITY;
-	else return  1./distance;
+	else return  (laser_data.range_max - distance)/laser_data.range_max;
 }
 
-double calc_velocity(Dynamic_window dw, double v)
+double calc_velocity(Dynamic_window dw, double v, double w)
 {
-  return dw.max_v - v;
+  double v_approriate = dw.max_v/2 *( cos(2*M_PI*w/(dw.max_w-dw.min_w)) + 0.5 );
+      // w の絶対値が大きいとき, v が小さい値になるように. また,
+      // w の絶対値が小さいとき, v が大きくなる
+  return abs(v -v_approriate)/dw.max_v;
 }
 
 double max(double a,double b)
