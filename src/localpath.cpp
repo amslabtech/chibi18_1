@@ -3,6 +3,7 @@
 #include <geometry_msgs/TwistStamped.h>
 #include <nav_msgs/Path.h>
 #include <geometry_msgs/PoseStamped.h>
+#include <geometry_msgs/PoseWithCovarianceStamped.h>
 #include <sensor_msgs/LaserScan.h>
 
 #include <tf/tf.h>
@@ -69,10 +70,11 @@ double get_yaw(geometry_msgs::Quaternion);
 
 bool pose_received = false;
 bool global_path_received = false;
+bool goal_calculated = false;
 
-void pose_callback(const geometry_msgs::PoseStampedConstPtr& msg)
+void pose_callback(const geometry_msgs::PoseWithCovarianceStampedConstPtr& msg)
 {
-  current_position = *msg;
+  current_position.pose = msg->pose.pose;
   pose_received = true;
 }
 
@@ -121,7 +123,7 @@ int main(int argc, char** argv)
   local_nh.getParam("gamma", _gamma);
   local_nh.getParam("local_goal_point", local_goal_point);
 
-  ros::Subscriber pose_sub = nh.subscribe("/mcl_pose", 100, pose_callback);
+  ros::Subscriber pose_sub = nh.subscribe("/chibi18/estimated_pose", 100, pose_callback);
   ros::Subscriber laser_sub = nh.subscribe("/scan", 100, laser_callback);
   ros::Subscriber global_path_sub = nh.subscribe("/chibi18/global_path",100,path_callback);
 
@@ -170,21 +172,20 @@ int main(int argc, char** argv)
       Dynamic_window dw = calc_dynamic_window(robot,model);
       std::cout << "calc dynamic window" << std::endl;
 
-   //   if(global_path_received){
-        goal = calc_goal(global_path,current_position);
-        std::cout << "calc goal" << std::endl;
-     // }
-      local_goal.pose.position.x = goal.x;
-      local_goal.pose.position.y = goal.y;
-      local_goal.pose.orientation = tf::createQuaternionMsgFromYaw(goal.yaw);
-      local_goal_pub.publish(local_goal);
-      //std::cout << local_goal  << std::endl;
+      goal = calc_goal(global_path,current_position);
+	  std::cout << "calc goal" << std::endl;
+      if(goal_calculated){
+	    local_goal.pose.position.x = goal.x;
+        local_goal.pose.position.y = goal.y;
+        local_goal.pose.orientation = tf::createQuaternionMsgFromYaw(goal.yaw);
+        local_goal_pub.publish(local_goal);
+        //std::cout << local_goal  << std::endl;
 
-      velocity.twist = calc_final_input(robot, dw, goal, model, param, local_path);
-      robot.v = velocity.twist.linear.x;
-      robot.w = velocity.twist.angular.z;
-      std::cout << "calc final_input" << std::endl;
-
+        velocity.twist = calc_final_input(robot, dw, goal, model, param, local_path);
+        robot.v = velocity.twist.linear.x;
+        robot.w = velocity.twist.angular.z;
+        std::cout << "calc final_input" << std::endl;
+      }
       velocity_pub.publish(velocity.twist);
       //std::cout << velocity.twist.linear.x << " , " << velocity.twist.angular.z << std::endl;
       local_path.header.frame_id ="map";
@@ -212,10 +213,11 @@ position calc_goal(nav_msgs::Path global_path,geometry_msgs::PoseStamped current
       index = i;
     }
   }
-  index = index + local_goal_point / 0.05;
+  index = index + (int)(local_goal_point / 0.05);
   p.x = global_path.poses[index].pose.position.x;
   p.y = global_path.poses[index].pose.position.y;
   p.yaw = get_yaw(global_path.poses[index].pose.orientation);
+  goal_calculated = true;
   return p;
 }
 
@@ -250,9 +252,11 @@ nav_msgs::Path calc_trajectory(
 {
   nav_msgs::Path traj; //trajectory... 軌跡,
   position X = Xinit;
-
   int N = (int)(param.predict_time / dt);
   traj.poses.resize(N);
+  traj.poses[0].pose.position.x = X.x;
+  traj.poses[0].pose.position.y = X.y;
+  traj.poses[0].pose.orientation = tf::createQuaternionMsgFromYaw(X.yaw);
   for(int i=1; i<N; i++){
     X.x = X.x + v*cos(X.yaw)*dt;
     X.y = X.y + v*sin(X.yaw)*dt;
@@ -284,7 +288,6 @@ geometry_msgs::Twist calc_final_input(Robot r,Dynamic_window dw,position goal,Mo
   for(double v = dw.min_v; v <= dw.max_v; v+=m.v_reso){
     for(double w = dw.min_w; w <= dw.max_w; w+=m.yawrate_reso){
       nav_msgs::Path traj = calc_trajectory(Xinit, v, w, p);
-
       double a = calc_heading(traj, goal, p);
       double b = calc_distance(traj, Xinit,p);
       double c = calc_velocity(dw, v);
