@@ -10,7 +10,7 @@
 
   <include file="$(find chibi_challenge)/launch/localization.launch"/>
 
-  <!--<include file="$(find chibi_challenge)/launch/localpath.launch"/>
--->
+  <include file="$(find chibi_challenge)/launch/localpath.launch"/>
+
 
 </launch>
