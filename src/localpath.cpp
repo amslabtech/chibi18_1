@@ -324,12 +324,7 @@ double calc_heading(nav_msgs::Path traj, position goal, evaluate_param param)
   double dy = traj.poses[N-1].pose.position.y - goal.y;
   double cost = sqrt( dx*dx + dy*dy);
 
-  float dx_max = traj.poses[0].pose.position.x - goal.x;
-  float dy_max = traj.poses[0].pose.position.y - goal.y;
-  float cost_max = sqrt(dx_max*dx_max + dy_max*dy_max);
-  cost /= cost_max;
-
-  //std::cout << "heading cost : "  << cost << std::endl;
+ //std::cout << "heading cost : "  << cost << std::endl;
   return cost;
 }
 
@@ -342,8 +337,8 @@ double calc_distance(nav_msgs::Path traj, position current, evaluate_param param
   for(int i = 0; i<720;i++){
     if(laser_data.ranges[i] < laser_data.range_min 
         || laser_data.ranges[i] > laser_data.range_max
-        || i%20!=0 )
-         continue;
+       )
+       continue;
 
     double obj_bearing = (2.0*i/sensor_data-1.0)*(M_PI/2.0);
     object.x = laser_data.ranges[i]*cos(current.yaw + obj_bearing) + current.x;
@@ -362,7 +357,7 @@ double calc_distance(nav_msgs::Path traj, position current, evaluate_param param
   std::cout << "distance : " << distance << std::endl;
 	if(distance < _robot_radius)
 		return INFINITY;
-	else return  (laser_data.range_max - distance)/laser_data.range_max;
+	else return  1. / distance;
 }
 
 double calc_velocity(Dynamic_window dw, double v, double w)
