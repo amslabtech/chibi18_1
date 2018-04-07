@@ -4,7 +4,6 @@
 #include <geometry_msgs/PoseStamped.h>
 #include <tf/transform_listener.h>
 
-
 geometry_msgs::PoseStamped start;
 geometry_msgs::PoseStamped goal;
 
@@ -37,7 +36,8 @@ struct cell{
 
 cell cellmap[4000][4000];
 
-std::vector<std::vector <int > > grid;
+int grid[4000][4000];
+//std::vector<std::vector <int > > grid;
 
 
 void map_callback(const nav_msgs::OccupancyGridConstPtr& msg)
@@ -51,18 +51,19 @@ void map_callback(const nav_msgs::OccupancyGridConstPtr& msg)
   closed_map.header = map.header;
   closed_map.info = map.info;
   closed_map.data.resize(map.info.height*map.info.width);
-  
+ /* 
   grid.resize(map.info.width);
   for(int i=0;i<map.info.width;i++){
     grid[i].resize(map.info.height);
   }//gridにmapを取り込む
-  
+  */
   map_received=true;
   
   
    for(int i=0;i<map.info.height;i++){
       for(int j=0;j<map.info.width;j++){
-        grid[i][j]=map.data[map.info.width*i+j];//grid[][]には0,-1,100が入る
+        grid[i][j]=map.data[i + map.info.width*j];//grid[][]には0,-1,100が入る
+		if(grid[i][j] != -1){std::cout << i <<","<< j <<","<< grid[i][j] <<std::endl;}
       }
     }
   std::cout << "map received" << std::endl;
@@ -88,14 +89,14 @@ void pose_callback(const geometry_msgs::PoseStampedConstPtr& msg)
   pose_subscribed = true;
 }
 
-void get_heuristic(int *goal0)
+void get_heuristic(int gx,int gy)
 {
-  for(int i=0;i<map.info.height;i++){
-    for(int j=0;j<map.info.width;j++){
-      int del_x=goal0[0]-j;
-      int del_y=goal0[1]-i;
-      const float dis_parameter = 1.0;	//control how important distanse is
-      cellmap[i][j].heuristic=dis_parameter*sqrt(del_x*del_x+del_y*del_y);
+  for(int i=0;i<map.info.width;i++){
+    for(int j=0;j<map.info.height;j++){
+      int del_x=gx-i;
+      int del_y=gy-j;
+      //const float dis_parameter = 1.0;	//control how important distanse is
+      cellmap[i][j].heuristic=sqrt(del_x*del_x+del_y*del_y);
       //cellmap[i][j].heuristic=abs(del_x)+abs(del_y);
       //printf("[%d][%d].h=%f\n",i,j,cellmap[i][j].heuristic);
     }
@@ -103,29 +104,31 @@ void get_heuristic(int *goal0)
   std::cout << "finished inputting heuristicmap" << std::endl;
 }
 
-void get_cost(std::vector<std::vector <int > > grid,float grid_size,float margin)
+void get_cost(float grid_size,float margin)
 {
-  for(int i=0;i<map.info.height;i++){
-    for(int j=0;j<map.info.width;j++){
-      if(grid[i][j]==-1){cellmap[i][j].cost=-1;}
-      else{cellmap[i][j].cost=1;}
-        
-      
+  for(int i=0;i<map.info.width;i++){
+    for(int j=0;j<map.info.height;j++){
+      //if(grid[i][j]==-1){
+	    //cellmap[i][j].cost=-1;
+	  //}else{
+	    cellmap[i][j].cost=0;
+	//  }
       //printf("[%d][%d].h=%f\n",i,j,cellmap[i][j].cost);
     }
   }
   
   const float dis_param = 2;
   
-  for(int i=0;i<4000;i++){
-    for(int j=0;j<4000;j++){ 
-      if(grid[i][j]==(int)100){
-        
+  for(int i=0;i<map.info.width;i++){
+    for(int j=0;j<map.info.height;j++){ 
+      if(grid[i][j]==100){
+       // cellmap[i][j].cost = 100;
+		   
         for(int k=-margin/grid_size;k<margin/grid_size;k++){
           for(int l=-margin/grid_size;l<margin/grid_size;l++){
-            if(i+k>=0&&i+k<4000&&j+l>=0&&j+l<4000){
+            if(i+k>=0&&i+k<map.info.width&&j+l>=0&&j+l<map.info.height){
               if(sqrt(k*k+l*l)<=margin/grid_size){
-                if(cellmap[i+k][j+l].cost<dis_param*(margin/grid_size-sqrt(k*k+l*l))&&cellmap[i+k][j+l].cost==1){
+                if(cellmap[i+k][j+l].cost<dis_param*(margin/grid_size-sqrt(k*k+l*l))&&cellmap[i+k][j+l].cost==0){
                 
                   cellmap[i+k][j+l].cost=100;//1+dis_param*(margin/grid_size-sqrt(k*k+l*l));
                 }
@@ -153,7 +156,7 @@ int main(int argc, char** argv)
   ros::Subscriber goal_sub = nh.subscribe("/move_base_simple/goal", 100, goal_callback);
   ros::Subscriber pose_sub = nh.subscribe("/mcl_pose", 100, pose_callback);
   
-  ros::Publisher path_pub = nh.advertise<nav_msgs::Path>("/global_path", 100, true);
+  ros::Publisher path_pub = nh.advertise<nav_msgs::Path>("/chibi18/global_path", 100, true);
   ros::Publisher cost_pub = nh.advertise<nav_msgs::OccupancyGrid>("/cost_map", 100, true);
   ros::Publisher closed_pub = nh.advertise<nav_msgs::OccupancyGrid>("/closed_map", 100, true);
   
@@ -168,8 +171,8 @@ int main(int argc, char** argv)
   
   ros::Rate loop_rate(10);
   
-  start.pose.position.x=0;//startの初期化
-  start.pose.position.y=0;//y!=0でバグる
+  start.pose.position.x=0;
+  start.pose.position.y=0;
   
   bool costmap_get_s=false;
   
@@ -179,7 +182,7 @@ int main(int argc, char** argv)
   
   while(ros::ok()){
     
-    //----------------------------------------------------------------------ここからA*
+    //A*
     if(map_received && goal_received){
       int init[]={0,0};//initを取り込む
       init[0]=(int)((start.pose.position.x-map.info.origin.position.x)/map.info.resolution);
@@ -202,38 +205,28 @@ int main(int argc, char** argv)
                           { 0, 1 , 1},
                           {-1, 1 , sqrt(2)}
                          };
-       /*int delta[][2] = {{-1, 0 },
-                         {-1, -1},
-                         { 0, -1},
-                         { 1, -1},
-                         { 1, 0 },
-                         { 1, 1 },
-                         { 0, 1 },
-                         {-1, 1 }
-                        };*/
-      
+    
       for(int i=0;i<cost_map.data.size();i++){
         closed_map.data[i] = -1;
-      }
-      
+      }  
       
       closed[init[0]][init[1]]=true;
-      closed_map.data[4000*init[0]+init[1]] = 100;
+      closed_map.data[init[0]+map.info.width*init[1]] = 100;
       
-      get_heuristic(goal0);//heuristicマップ作成
+      get_heuristic(goal0[0],goal0[1]);//heuristicマップ作成
       
       if(!costmap_get_s){
         float margin=0.5;//コストを上げる壁からの距離[m]
-        get_cost(grid,map.info.resolution,margin);//costマップ作成
+        get_cost(map.info.resolution,margin);//costマップ作成
         costmap_get_s=true;
       }
       
-      int y=init[1];
       int x=init[0];
-      float g=cellmap[x][y].heuristic;
+      int y=init[1];
+      float g=0.0;
       int x2;
       int y2;
-      float g2=g;
+      float g2;
       
       std::vector<OpenList> open;
       open.push_back({g,x,y});
@@ -264,15 +257,16 @@ int main(int argc, char** argv)
               next.x=open[i].x;
               next.y=open[i].y;
               pre_expand=i;
-              std::cout <<"next[x,y,g] = [ "<< x<<" , "<<y<<" , "<<g<<" ]"<< std::endl;
-              
+              //std::cout <<"next[x,y,g,heuristic] = [ "<< x<<" , "<<y<<" , "<<g<< ","<<cellmap[x][y].heuristic<< " ]"<< std::endl; 
             }
           }
           
+    	  open.erase(open.begin()+pre_expand);
           x=next.x;
           y=next.y;
           g=next.g;
           //std::cout <<"x,y = "<< x<<" , "<<y<< std::endl;
+    	  std::cout <<"next[x,y,g,heuristic] = [ "<< x<<" , "<<y<<" , "<<g<< ","<<cellmap[x][y].heuristic<< " ]"<< std::endl; 
           if((x==goal0[0]) && (y==goal0[1])){
             found=true;
             std::cout << "found goal"<< std::endl;
@@ -282,21 +276,21 @@ int main(int argc, char** argv)
               x2=x+delta[i][0];
               y2=y+delta[i][1];
               //std::cout <<"x2,y2 = "<< x2<<" , "<<y2<< std::endl;
-              if((x2>=0)&&(x2<4000)&&(y2>=0)&&(y2<4000)){
+              if((x2>=0)&&(x2<map.info.width)&&(y2>=0)&&(y2<map.info.height)){ 
                 if((closed[x2][y2]==false)&&(grid[x2][y2]==0)){
-                  g2= g + delta[i][2] + cellmap[x2][y2].cost + cellmap[x2][y2].heuristic - cellmap[x][y].heuristic;
+                  g2= g + delta[i][2] + cellmap[x2][y2].cost + cellmap[x2][y2].heuristic;
                   open.push_back({g2,x2,y2});
                    
                   //std::cout <<"open.push[x,y,g] = [ "<< x2<<" , "<<y2<<" , "<<g2<<" ]"<< std::endl;
                   closed[x2][y2]=true;
-                  closed_map.data[4000*x2+y2] = 100;
+                  closed_map.data[x2+map.info.width*y2] = 100;
 				  
                   action[x2][y2]=i;
                 }
               }
+			  
             }
             //std::cout <<"------"<< std::endl;
-            open.erase(open.begin()+pre_expand);
           }
         }
       }
@@ -313,9 +307,6 @@ int main(int argc, char** argv)
         path0.pose.position.x=x*map.info.resolution+map.info.origin.position.x;
         path0.pose.position.y=y*map.info.resolution+map.info.origin.position.y;
         path0.pose.position.z=0;
-
-        
-        
 
         global_path0.poses.push_back(path0);
         
@@ -347,9 +338,10 @@ int main(int argc, char** argv)
       }
       std::reverse(global_path0.poses.begin(), global_path0.poses.end());
       for(int i=0;i<cost_map.data.size();i++){
-        cost_map.data[i] = int(cellmap[(int)(double(i)/4000.0)][i%4000].cost);
+        int ox = i/map.info.width;
+		int oy = i%map.info.height;
+		cost_map.data[i] = int(cellmap[ox][oy].cost);
       }
-      
       
       cost_pub.publish(cost_map);
       
@@ -359,13 +351,14 @@ int main(int argc, char** argv)
       }
 
       global_path.poses.insert(global_path.poses.end(), global_path0.poses.begin(), global_path0.poses.end());
-      path_pub.publish(global_path);
+	  std::cout << "path size :" <<global_path.poses.size() << std::endl;
+	  path_pub.publish(global_path);
       global_path0.poses.clear();
       goal_received=false;
-      for(int i=0;i<4000;i++){
-        for(int j=0;j<4000;j++){
+      for(int i=0;i<map.info.width;i++){
+        for(int j=0;j<map.info.height;j++){
           closed[i][j]=false; 
-          closed_map.data[4000*i+j] = -1;
+          closed_map.data[i+map.info.width*j] = -1;
           action[i][j]=-1;
         }
       }
