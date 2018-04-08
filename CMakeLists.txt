@@ -150,6 +150,7 @@ add_executable(sending_goal src/sending_goal.cpp)
 add_executable(mcl src/mcl.cpp)
 add_executable(globalpath src/globalpath.cpp)
 add_executable(localpath src/localpath.cpp)
+add_executable(roomba_sim src/roomba_sim.cpp)
 
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
@@ -176,6 +177,7 @@ target_link_libraries(sending_goal ${catkin_LIBRARIES})
 target_link_libraries(mcl ${catkin_LIBRARIES})
 target_link_libraries(globalpath ${catkin_LIBRARIES})
 target_link_libraries(localpath ${catkin_LIBRARIES})
+target_link_libraries(roomba_sim ${catkin_LIBRARIES})
 
 
 #############
