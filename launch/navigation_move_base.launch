@@ -1,0 +1,13 @@
+<launch>
+
+  <include file="$(find chibi_challenge)/launch/base.launch"/>
+
+  <include file="$(find chibi_challenge)/launch/map.launch"/>
+	
+	<include file="$(find chibi_challenge)/launch/move_base_test.launch"/>
+	
+	<node pkg="chibi_challenge" name="waypoint_server" type="waypoint_server" output="screen"/>
+
+	<node pkg="rviz" name="rviz" type="rviz" output="screen"/>
+
+</launch>
