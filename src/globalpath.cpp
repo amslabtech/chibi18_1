@@ -95,7 +95,7 @@ void get_cost(float grid_size,float margin)
     }
   }
 
-  const float dis_param = 20;
+  const float dis_param = 10;
   
   for(int i=0;i<map.info.width;i++){
     for(int j=0;j<map.info.height;j++){ 
@@ -106,7 +106,7 @@ void get_cost(float grid_size,float margin)
           for(int l=-margin/grid_size;l<margin/grid_size;l++){
             if(i+k>=0&&i+k<map.info.width&&j+l>=0&&j+l<map.info.height){
               if(sqrt(k*k+l*l)<=margin/grid_size){
-                if(cellmap[i+k][j+l].cost<dis_param*(margin/grid_size-sqrt(k*k+l*l))&&grid[i+k][j+l]==0){
+                if(cellmap[i+k][j+l].cost<dis_param*(margin/grid_size-sqrt(k*k+l*l))&&grid[i+k][j+l]!=100){
                   cellmap[i+k][j+l].cost=1+dis_param*(margin/grid_size-sqrt(k*k+l*l));
                 }
               }
@@ -172,13 +172,13 @@ int main(int argc, char** argv)
       
       
       float delta[][3] = {{-1, 0 , 1},
-                          {-1, -1, 5},
+                          {-1, -1, sqrt(2)},
                           { 0, -1, 1},
-                          { 1, -1, 5},
+                          { 1, -1, sqrt(2)},
                           { 1, 0 , 1},
-                          { 1, 1 , 5},
+                          { 1, 1 , sqrt(2)},
                           { 0, 1 , 1},
-                          {-1, 1 , 5}
+                          {-1, 1 , sqrt(2)}
                          };
     
       for(int i=0;i<cost_map.data.size();i++){
