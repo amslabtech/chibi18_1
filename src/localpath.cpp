@@ -71,6 +71,7 @@ double get_yaw(geometry_msgs::Quaternion);
 bool pose_received = false;
 bool global_path_received = false;
 bool goal_calculated = false;
+bool achieved_goal = false;
 
 void pose_callback(const geometry_msgs::PoseWithCovarianceStampedConstPtr& msg)
 {
@@ -173,19 +174,34 @@ int main(int argc, char** argv)
       std::cout << "calc dynamic window" << std::endl;
 
       goal = calc_goal(global_path,current_position);
-	  std::cout << "calc goal" << std::endl;
-      if(goal_calculated){
-	    local_goal.pose.position.x = goal.x;
-        local_goal.pose.position.y = goal.y;
-        local_goal.pose.orientation = tf::createQuaternionMsgFromYaw(goal.yaw);
-        local_goal_pub.publish(local_goal);
+	    std::cout << "calc goal" << std::endl;
+      if(achieved_goal){
+				velocity.twist.linear.x = 0.0;
+				velocity.twist.angular.z = 0.0;
+			}
+			if(goal_calculated){
+				if(achieved_goal){
+					local_goal.pose.position.x = global_path.poses[global_path.poses.size()-1].pose.position.x;
+					local_goal.pose.position.y = global_path.poses[global_path.poses.size()-1].pose.position.y;
+					local_goal.pose.orientation = global_path.poses[global_path.poses.size()-1].pose.orientation;
+				}else{
+	    		local_goal.pose.position.x = goal.x;
+        	local_goal.pose.position.y = goal.y;
+        	local_goal.pose.orientation = tf::createQuaternionMsgFromYaw(goal.yaw);
+				}
+				local_goal_pub.publish(local_goal);
         //std::cout << local_goal  << std::endl;
 
         velocity.twist = calc_final_input(robot, dw, goal, model, param, local_path);
-        robot.v = velocity.twist.linear.x;
+				robot.v = velocity.twist.linear.x;
         robot.w = velocity.twist.angular.z;
-        std::cout << "calc final_input" << std::endl;
+				std::cout << "calc final_input" << std::endl;
       }
+			if(achieved_goal){
+				velocity.twist.linear.x = 0.0;
+				velocity.twist.angular.z = 0.0;
+			}
+
       velocity_pub.publish(velocity.twist);
       //std::cout << velocity.twist.linear.x << " , " << velocity.twist.angular.z << std::endl;
       local_path.header.frame_id ="map";
@@ -213,11 +229,16 @@ position calc_goal(nav_msgs::Path global_path,geometry_msgs::PoseStamped current
       index = i;
     }
   }
-  index = index + (int)(local_goal_point / 0.05);
+	
+  index = index + (int)(local_goal_point / 0.05); 
+
   p.x = global_path.poses[index].pose.position.x;
   p.y = global_path.poses[index].pose.position.y;
   p.yaw = get_yaw(global_path.poses[index].pose.orientation);
   goal_calculated = true;
+	if(index >= global_path.poses.size()){
+		achieved_goal = true;
+	}
   return p;
 }
 
@@ -354,7 +375,7 @@ double calc_distance(nav_msgs::Path traj, position current, evaluate_param param
       }
     }
   }
-  std::cout << "distance : " << distance << std::endl;
+  //std::cout << "distance : " << distance << std::endl;
 	if(distance < _robot_radius)
 		return INFINITY;
 	else return  1. / distance;
