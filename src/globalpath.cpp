@@ -105,9 +105,9 @@ void get_cost(float grid_size,float margin,float dis_param)
 		   
         for(int k=-margin/grid_size;k<margin/grid_size;k++){
           for(int l=-margin/grid_size;l<margin/grid_size;l++){
-            if(i+k>=0&&i+k<map.info.width&&j+l>=0&&j+l<map.info.height){
+            if(i+k>=0&&i+k<map.info.width&&j+l>=0&&j+l<map.info.height&&(grid[i+k][j+l]!=-1)){
               if(sqrt(k*k+l*l)<=margin/grid_size){
-                if(cellmap[i+k][j+l].cost<dis_param*(margin/grid_size-sqrt(k*k+l*l))&&grid[i+k][j+l]!=100){
+                if(cellmap[i+k][j+l].cost<dis_param*(margin/grid_size-sqrt(k*k+l*l))){
                   if(1+dis_param*(margin/grid_size-sqrt(k*k+l*l))<255){
 					cellmap[i+k][j+l].cost=1+dis_param*(margin/grid_size-sqrt(k*k+l*l));
 				  }else{
