@@ -3,7 +3,12 @@
   <node pkg="map_server" name="map_server" type="map_server" args="$(arg map_file)" output="screen"/>
   -->
 
-  <node pkg="chibi_challenge" name="globalpath" type="globalpath" output="screen"/>
+  <node pkg="chibi_challenge" name="globalpath" type="globalpath" output="screen">
     
-  
+    <param name="margin" value="1.2"/>
+    <param name="heuristic_gain" value="100.0"/>
+    <param name="cost_gain" value="4.0"/>
+
+  </node>
+
 </launch>

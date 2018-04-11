@@ -19,6 +19,7 @@ bool goal_received=false;
 bool closed[4000][4000]={false};
 int action[4000][4000]={-1};
 
+
 struct OpenList{
   float g;
   int x;
@@ -67,7 +68,7 @@ void goal_callback(const geometry_msgs::PoseStampedConstPtr& msg)
   goal_received=true;
 }
 
-void get_heuristic(int gx,int gy)
+void get_heuristic(int gx,int gy,float dis_parameter)
 {
   for(int i=0;i<map.info.width;i++){
     for(int j=0;j<map.info.height;j++){
@@ -82,20 +83,20 @@ void get_heuristic(int gx,int gy)
   std::cout << "finished inputting heuristicmap" << std::endl;
 }
 
-void get_cost(float grid_size,float margin)
+void get_cost(float grid_size,float margin,float dis_param)
 {
   for(int i=0;i<map.info.width;i++){
     for(int j=0;j<map.info.height;j++){
       if(grid[i][j]==-1){
 	  	  cellmap[i][j].cost=-1;
 	  	}else{
-				cellmap[i][j].cost = 0;
+				cellmap[i][j].cost = 1;
 			}
       //printf("[%d][%d].h=%f\n",i,j,cellmap[i][j].cost);
     }
   }
 
-  const float dis_param = 10;
+  //const float dis_param = 10;
   
   for(int i=0;i<map.info.width;i++){
     for(int j=0;j<map.info.height;j++){ 
@@ -107,7 +108,11 @@ void get_cost(float grid_size,float margin)
             if(i+k>=0&&i+k<map.info.width&&j+l>=0&&j+l<map.info.height){
               if(sqrt(k*k+l*l)<=margin/grid_size){
                 if(cellmap[i+k][j+l].cost<dis_param*(margin/grid_size-sqrt(k*k+l*l))&&grid[i+k][j+l]!=100){
-                  cellmap[i+k][j+l].cost=1+dis_param*(margin/grid_size-sqrt(k*k+l*l));
+                  if(1+dis_param*(margin/grid_size-sqrt(k*k+l*l))<255){
+					cellmap[i+k][j+l].cost=1+dis_param*(margin/grid_size-sqrt(k*k+l*l));
+				  }else{
+                    cellmap[i+k][j+l].cost=255;
+				  }
                 }
               }
             }
@@ -124,10 +129,20 @@ void get_cost(float grid_size,float margin)
   std::cout << "finished inputting costmap" << std::endl;
 }
 
+float _margin;
+float _heuristic_gain;
+float _cost_gain;
+
 int main(int argc, char** argv)
 {
   ros::init(argc, argv, "globalpath");
   ros::NodeHandle nh;
+  
+  ros::NodeHandle local_nh("~");
+  
+  local_nh.getParam("margin",_margin);
+  local_nh.getParam("heuristic_gain",_heuristic_gain);
+  local_nh.getParam("cost_gain",_cost_gain);
   
   ros::Subscriber map_sub = nh.subscribe("/map", 100, map_callback);
   ros::Subscriber goal_sub = nh.subscribe("/move_base_simple/goal", 100, goal_callback);
@@ -188,11 +203,11 @@ int main(int argc, char** argv)
       closed[init[0]][init[1]]=true;
       closed_map.data[init[0]+map.info.width*init[1]] = 100;
       
-      get_heuristic(goal0[0],goal0[1]);//heuristicマップ作成
+      get_heuristic(goal0[0],goal0[1],_heuristic_gain);//heuristicマップ作成
       
       if(!costmap_get_s){
-        float margin=1.0;//コストを上げる壁からの距離[m]
-        get_cost(map.info.resolution,margin);//costマップ作成
+        //float _margin=1.0;//コストを上げる壁からの距離[m]
+        get_cost(map.info.resolution,_margin,_cost_gain);//costマップ作成
         costmap_get_s=true;
       }
       
