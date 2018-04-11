@@ -6,7 +6,7 @@
   <node pkg="chibi_challenge" name="globalpath" type="globalpath" output="screen">
     
     <param name="margin" value="1.2"/>
-    <param name="heuristic_gain" value="100.0"/>
+    <param name="heuristic_gain" value="0.09"/>
     <param name="cost_gain" value="4.0"/>
 
   </node>

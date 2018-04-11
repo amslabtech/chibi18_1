@@ -74,7 +74,7 @@ void get_heuristic(int gx,int gy,float dis_parameter)
     for(int j=0;j<map.info.height;j++){
       int del_x=gx-i;
       int del_y=gy-j;
-      const float dis_parameter = 1.0;	//control how important distanse is
+      //const float dis_parameter = 1.0;	//control how important distanse is
       cellmap[i][j].heuristic=dis_parameter*sqrt(del_x*del_x+del_y*del_y);
       //cellmap[i][j].heuristic=abs(del_x)+abs(del_y);
       //printf("[%d][%d].h=%f\n",i,j,cellmap[i][j].heuristic);
@@ -339,7 +339,7 @@ int main(int argc, char** argv)
       }
 
       global_path.poses.insert(global_path.poses.end(), global_path0.poses.begin(), global_path0.poses.end());
-		  std::cout << "path size :" <<global_path.poses.size() << std::endl;
+		  //std::cout << "path size :" <<global_path.poses.size() << std::endl;
 	  	path_pub.publish(global_path);
       global_path0.poses.clear();
       goal_received=false;
