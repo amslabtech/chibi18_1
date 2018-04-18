@@ -383,10 +383,10 @@ double calc_distance(nav_msgs::Path traj, position current, evaluate_param param
 
 double calc_velocity(Dynamic_window dw, double v, double w)
 {
-  double v_approriate = dw.max_v/2 *( cos(2*M_PI*w/(dw.max_w-dw.min_w)) + 0.5 );
+  double v_appropriate = dw.max_v/2 *( cos(2*M_PI*w/(dw.max_w-dw.min_w)) + 1. );
       // w の絶対値が大きいとき, v が小さい値になるように. また,
       // w の絶対値が小さいとき, v が大きくなる
-  return abs(v -v_approriate)/dw.max_v;
+  return abs(v -v_appropriate)/dw.max_v;
 }
 
 double max(double a,double b)
