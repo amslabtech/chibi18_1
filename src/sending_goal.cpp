@@ -14,11 +14,12 @@ int main(int argc, char** argv){
 	 
 	ros::Publisher pose_pub = nh.advertise<geometry_msgs::PoseStamped>("/move_base_simple/goal", 100);
   ros::Publisher poses_pub = nh.advertise<geometry_msgs::PoseArray>("waypoints",100);
-	set_pose(14.4, 0.0, -1.55);//14.4//0.0//-1.55
-	set_pose(14.6, -13.3, -3.08);//14.9//-13.0//-3.08
-	set_pose(-18.5, -15.2, 1.62);//-18.7//-14.9//1.62
-	set_pose(-19.1, -1.3, 0.0);//-19.0//-1.3//0.0
-	set_pose(0.0, 0.0, 0.0);
+	set_pose(0.0, 4.0, 0.0);//14.4//0.0//-1.55
+	//set_pose(14.4, 0.0, -1.55);//14.4//0.0//-1.55
+	//set_pose(14.6, -13.3, -3.08);//14.9//-13.0//-3.08
+	//set_pose(-18.5, -15.2, 1.62);//-18.7//-14.9//1.62
+	//set_pose(-19.1, -1.3, 0.0);//-19.0//-1.3//0.0
+	//set_pose(0.0, 0.0, 0.0);
 	goals.header.frame_id = "map";
 
 	for(int i=0;i<wp.size();i++){

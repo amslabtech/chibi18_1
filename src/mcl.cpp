@@ -69,7 +69,7 @@ double init_pose_yaw_cov;
 double alpha_slow;
 double alpha_fast;
 
-bool map_received = false;
+bool map_received = true;//false;
 std::vector<Particle>  particles;
 
 //mapの受け取りとパーティクルの配置

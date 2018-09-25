@@ -4,15 +4,13 @@
 
   <node pkg="chibi_challenge" name="fr_br" type="frame_tf_br" output="screen"/>
 
-  <include file="$(find chibi_challenge)/launch/map.launch"/>
+  <include file="$(find chibi_challenge)/launch/test_map.launch"/>
 
   <include file="$(find chibi_challenge)/launch/globalpath.launch"/>
 
  <node pkg="chibi_challenge" name="sending_goal" type="sending_goal" output="screen"/>
 
   <include file="$(find chibi_challenge)/launch/localization.launch"/>
-
-	<include file="$(find chibi_challenge)/launch/localpath.launch"/>
 
   <node pkg="rviz" name="rviz" type="rviz" output="screen"/>
 

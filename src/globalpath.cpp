@@ -16,8 +16,8 @@ bool first_aster=true;
 bool map_received=false;
 bool goal_received=false;
 
-bool closed[4000][4000]={false};
-int action[4000][4000]={-1};
+bool closed[1000][1000]={false};
+int action[1000][1000]={-1};
 
 
 struct OpenList{
@@ -31,9 +31,9 @@ struct cell{
   float heuristic;
 };
 
-cell cellmap[4000][4000];
+cell cellmap[1000][1000];
 
-int grid[4000][4000];
+int grid[1000][1000];
 
 void map_callback(const nav_msgs::OccupancyGridConstPtr& msg)
 {
@@ -161,8 +161,8 @@ int main(int argc, char** argv)
   
   ros::Rate loop_rate(10);
   
-  start.pose.position.x=0;
-  start.pose.position.y=0;
+  start.pose.position.x=-1;
+  start.pose.position.y=-4;
   
   bool costmap_get_s=false;
   

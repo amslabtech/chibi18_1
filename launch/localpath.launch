@@ -12,6 +12,6 @@
     <param name="alpha" value="6.5"/>
     <param name="beta" value="1.0"/>
     <param name="gamma" value="1.0"/>
-    <param name="local_goal_point" value="1.5"/>
+    <param name="local_goal_point" value="3"/>
   </node>
 </launch>
