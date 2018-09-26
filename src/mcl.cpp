@@ -4,6 +4,7 @@
 #include <geometry_msgs/PoseArray.h>
 
 #include <nav_msgs/OccupancyGrid.h>
+#include <nav_msgs/Path.h>
 #include <sensor_msgs/LaserScan.h>
 
 #include <tf/transform_broadcaster.h>
@@ -121,6 +122,7 @@ int main(int argc,char** argv)
   ros::Publisher pose_pub = nh.advertise
                       <geometry_msgs::PoseWithCovarianceStamped>("/chibi18/estimated_pose",100);
   ros::Publisher pose_array_pub = nh.advertise<geometry_msgs::PoseArray>("/poses",100);
+  ros::Publisher path_pub = nh.advertise<nav_msgs::Path>("/path",100);
 
   ros::Subscriber map_sub = nh.subscribe("/map",100,map_callback);
   ros::Subscriber laser_sub = nh.subscribe("/scan",100,laser_callback);
@@ -134,6 +136,8 @@ int main(int argc,char** argv)
   current_pose.pose.position.y = 0;
   quaternionTFToMsg(tf::createQuaternionFromYaw(0), current_pose.pose.orientation);
 
+  nav_msgs::Path path;
+  path.header.frame_id = "map";
 
   ros::Rate loop_rate(10);
 
@@ -144,7 +148,7 @@ int main(int argc,char** argv)
       poses.header.frame_id = "map";
 
       tf::StampedTransform transform;
-	  transform = tf::StampedTransform(tf::Transform(tf::createQuaternionFromYaw(0.0), tf::Vector3(0.0, 0.0, 0)), ros::Time::now(), "odom", "base_link");
+      transform = tf::StampedTransform(tf::Transform(tf::createQuaternionFromYaw(0.0), tf::Vector3(0.0, 0.0, 0)), ros::Time::now(), "odom", "base_link");
       try{
         listener.waitForTransform("odom", "base_link",ros::Time(0), ros::Duration(1.0));
         listener.lookupTransform("odom", "base_link", ros::Time(0), transform);
@@ -245,25 +249,28 @@ int main(int argc,char** argv)
       estimated_pose.pose.orientation = particles[max_index].pose.pose.orientation; 
       geometry_msgs::PoseWithCovarianceStamped _estimated_pose;
       _estimated_pose.pose.pose = estimated_pose.pose;
-	  _estimated_pose.header = estimated_pose.header;
-	  pose_pub.publish(_estimated_pose);
+      _estimated_pose.header = estimated_pose.header;
+      pose_pub.publish(_estimated_pose);
       pose_array_pub.publish(poses);
+      
+      path.poses.push_back(estimated_pose);
+      path_pub.publish(path);
       
      // std::cout << "estimated_pose(x,y,theta)" << "(" << estimated_pose.pose.position.x<< ","<< estimated_pose.pose.position.y<<","<< get_yaw(estimated_pose.pose.orientation) << ")" <<  std::endl;
       try{ 
-      	tf::StampedTransform map_transform;
-      	map_transform.setOrigin(tf::Vector3(estimated_pose.pose.position.x, estimated_pose.pose.position.y, 0.0));
-      	map_transform.setRotation(tf::Quaternion(0, 0, get_yaw(estimated_pose.pose.orientation),1));
-      	tf::Stamped<tf::Pose> tf_stamped(map_transform.inverse(), laser_data.header.stamp, "base_link");
-      	tf::Stamped<tf::Pose> odom_to_map; 
-      	listener.transformPose("odom", tf_stamped, odom_to_map);
-      	tf::Transform latest_tf = tf::Transform(tf::Quaternion(odom_to_map.getRotation()), tf::Point(odom_to_map.getOrigin()));
-      	temp_tf_stamped = tf::StampedTransform(latest_tf.inverse(), laser_data.header.stamp, "map", "odom");
+        tf::StampedTransform map_transform;
+        map_transform.setOrigin(tf::Vector3(estimated_pose.pose.position.x, estimated_pose.pose.position.y, 0.0));
+        map_transform.setRotation(tf::Quaternion(0, 0, get_yaw(estimated_pose.pose.orientation),1));
+        tf::Stamped<tf::Pose> tf_stamped(map_transform.inverse(), laser_data.header.stamp, "base_link");
+        tf::Stamped<tf::Pose> odom_to_map; 
+        listener.transformPose("odom", tf_stamped, odom_to_map);
+        tf::Transform latest_tf = tf::Transform(tf::Quaternion(odom_to_map.getRotation()), tf::Point(odom_to_map.getOrigin()));
+        temp_tf_stamped = tf::StampedTransform(latest_tf.inverse(), laser_data.header.stamp, "map", "odom");
         map_broadcaster.sendTransform(temp_tf_stamped);
-	  }catch(tf::TransformException ex){
-		std::cout << "braodcast error!" << std::endl;
-	  	std::cout << ex.what() << std::endl;
-	  }
+      }catch(tf::TransformException ex){
+        std::cout << "braodcast error!" << std::endl;
+        std::cout << ex.what() << std::endl;
+      }
     }
     ros::spinOnce();
     loop_rate.sleep();
