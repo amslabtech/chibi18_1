@@ -5,12 +5,14 @@
 #include <geometry_msgs/Twist.h>
 #include <geometry_msgs/Pose.h>
 #include <nav_msgs/OccupancyGrid.h>
+#include <nav_msgs/Odometry.h>
 
 tf::StampedTransform odom_to_base_link;
 geometry_msgs::Twist velocity;
 sensor_msgs::LaserScan laser;
 geometry_msgs::Pose pose;
 nav_msgs::OccupancyGrid map;
+nav_msgs::Odometry odom;
 
 bool map_subscribed = false;
 
@@ -45,6 +47,8 @@ int main(int argc, char** argv)
   ros::Subscriber velocity_sub = nh.subscribe("/cmd_vel", 100, velocity_callback);
 
   ros::Publisher laser_pub = nh.advertise<sensor_msgs::LaserScan>("/scan", 100);
+  
+	ros::Publisher odom_pub = nh.advertise<nav_msgs::Odometry>("/odom", 100);
 
   ros::Subscriber map_sub = nh.subscribe("/map", 100, map_callback);
 
@@ -88,6 +92,15 @@ int main(int argc, char** argv)
       std::cout << "broadcast error" << std::endl;
       std::cout << ex.what() << std::endl;
     }
+
+		odom.header.frame_id = "base_link";
+		odom.pose.pose.position.x = pose.position.x;
+		odom.pose.pose.position.y = pose.position.y;
+		odom.pose.pose.orientation = pose.orientation;
+		//odom.child_frame_id = "base_link";
+		odom_pub.publish(odom);
+
+
     ros::spinOnce();
     loop_rate.sleep();
   }

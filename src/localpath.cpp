@@ -2,6 +2,7 @@
 
 #include <geometry_msgs/TwistStamped.h>
 #include <nav_msgs/Path.h>
+#include <nav_msgs/Odometry.h>
 #include <geometry_msgs/PoseStamped.h>
 #include <geometry_msgs/PoseWithCovarianceStamped.h>
 #include <sensor_msgs/LaserScan.h>
@@ -72,8 +73,14 @@ bool pose_received = false;
 bool global_path_received = false;
 bool goal_calculated = false;
 bool achieved_goal = false;
-
+/*
 void pose_callback(const geometry_msgs::PoseWithCovarianceStampedConstPtr& msg)
+{
+  current_position.pose = msg->pose.pose;
+  pose_received = true;
+}
+*/
+void odom_callback(const nav_msgs::OdometryConstPtr& msg)
 {
   current_position.pose = msg->pose.pose;
   pose_received = true;
@@ -124,13 +131,15 @@ int main(int argc, char** argv)
   local_nh.getParam("gamma", _gamma);
   local_nh.getParam("local_goal_point", local_goal_point);
 
-  ros::Subscriber pose_sub = nh.subscribe("/chibi18/estimated_pose", 100, pose_callback);
+  ros::Subscriber pose_sub = nh.subscribe("/odom", 100, odom_callback);
+  //ros::Subscriber pose_sub = nh.subscribe("/chibi18/estimated_pose", 100, pose_callback);
   ros::Subscriber laser_sub = nh.subscribe("/scan", 100, laser_callback);
   ros::Subscriber global_path_sub = nh.subscribe("/chibi18/global_path",100,path_callback);
 
   ros::Publisher velocity_pub = nh.advertise<geometry_msgs::Twist>("/cmd_vel", 100);
   ros::Publisher local_path_pub = nh.advertise<nav_msgs::Path>("/local_path", 100);
   ros::Publisher local_goal_pub = nh.advertise<geometry_msgs::PoseStamped>("/local_goal",100);
+  ros::Publisher path_pub = nh.advertise<nav_msgs::Path>("/path", 100);
 
   geometry_msgs::TwistStamped velocity;
   velocity.header.frame_id = "base_link";
@@ -165,10 +174,18 @@ int main(int argc, char** argv)
   robot.pose.yaw = M_PI / 2.0;
   robot.v = 0.0;
   robot.w = 0.0;
+	
+	ros::Time current_time, last_time;
+	current_time = ros::Time::now();
+	last_time = ros::Time::now();
+
+	double total_time = 0.0;
+	double total_dis = 0.0;
 
   ros::Rate loop_rate(10);
 
   while(ros::ok()){
+		current_time = ros::Time::now();
     if(!laser_data.ranges.empty() && pose_received && global_path_received){
       Dynamic_window dw = calc_dynamic_window(robot,model);
       std::cout << "calc dynamic window" << std::endl;
@@ -201,13 +218,20 @@ int main(int argc, char** argv)
 				velocity.twist.linear.x = 0.0;
 				velocity.twist.angular.z = 0.0;
 			}
-
-      velocity_pub.publish(velocity.twist);
+			double dt_ = current_time.toSec() - last_time.toSec();
+      total_time += dt_;
+			total_dis += dt_*velocity.twist.linear.x;
+			velocity_pub.publish(velocity.twist);
       //std::cout << velocity.twist.linear.x << " , " << velocity.twist.angular.z << std::endl;
       local_path.header.frame_id ="map";
       local_path_pub.publish(local_path);
-      std::cout << local_path.poses.size() << std::endl;
+      //std::cout << local_path.poses.size() << std::endl;
+      std::cout << "dt :" << dt_ << std::endl;
+      std::cout << "dis :" << total_dis << std::endl;
+      std::cout << "time :" <<total_time << std::endl;
+
     }
+		last_time = current_time;
     ros::spinOnce();
     loop_rate.sleep();
   }

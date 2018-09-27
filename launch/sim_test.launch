@@ -1,17 +1,13 @@
 <launch>
 
-  <node pkg="chibi_challenge" name="roomba" type="roomba_sim" output="screen"/>
+  <node pkg="mapless_navigation" name="roomba" type="robot_sim" output="screen"/>
 
-  <node pkg="chibi_challenge" name="fr_br" type="frame_tf_br" output="screen"/>
-
-  <include file="$(find chibi_challenge)/launch/test_map.launch"/>
-
-  <include file="$(find chibi_challenge)/launch/globalpath.launch"/>
+  <include file="$(find chibi_challenge)/launch/map.launch"/>
 
  <node pkg="chibi_challenge" name="sending_goal" type="sending_goal" output="screen"/>
-
+<!--
   <include file="$(find chibi_challenge)/launch/localization.launch"/>
-
+-->
   <node pkg="rviz" name="rviz" type="rviz" output="screen"/>
 
 </launch>
