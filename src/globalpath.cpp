@@ -161,8 +161,8 @@ int main(int argc, char** argv)
   
   ros::Rate loop_rate(10);
   
-  start.pose.position.x=-1;
-  start.pose.position.y=-4;
+  start.pose.position.x=0.0;
+  start.pose.position.y=-4.5;
   
   bool costmap_get_s=false;
   

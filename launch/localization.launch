@@ -15,9 +15,9 @@
     <param name="lambda_short" value="0.1"/>
     <param name="alpha_slow" value="0.001"/>
     <param name="alpha_fast" value="0.1"/>
-    <param name="init_pose_x" value="0.0"/>
+    <param name="init_pose_x" value="-3.0"/>
     <param name="init_pose_y" value="0.0"/>
-    <param name="init_pose_yaw" value="0.0"/>
+    <param name="init_pose_yaw" value="-1.570"/>
     <param name="init_pose_x_cov" value="1.5"/>
     <param name="init_pose_y_cov" value="1.5"/>
     <param name="init_pose_yaw_cov" value="0.5"/>

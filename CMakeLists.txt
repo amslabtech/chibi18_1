@@ -152,6 +152,7 @@ add_executable(globalpath src/globalpath.cpp)
 add_executable(localpath src/localpath.cpp)
 add_executable(roomba_sim src/roomba_sim.cpp)
 add_executable(waypoint_server src/waypoint_server.cpp)
+add_executable(dwa src/dwa.cpp)
 
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
@@ -180,6 +181,7 @@ target_link_libraries(globalpath ${catkin_LIBRARIES})
 target_link_libraries(localpath ${catkin_LIBRARIES})
 target_link_libraries(roomba_sim ${catkin_LIBRARIES})
 target_link_libraries(waypoint_server ${catkin_LIBRARIES})
+target_link_libraries(dwa ${catkin_LIBRARIES})
 
 
 #############

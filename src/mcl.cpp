@@ -91,6 +91,11 @@ void map_callback(const nav_msgs::OccupancyGridConstPtr& msg)
 void laser_callback(const sensor_msgs::LaserScanConstPtr& msg)
 {
   laser_data = *msg;
+	for(int i = 0;i<720;i++){
+		if(laser_data.ranges[i] > 20.0){
+			laser_data.ranges[i] = 20.0;
+		}
+	}
 }
 
 int main(int argc,char** argv)

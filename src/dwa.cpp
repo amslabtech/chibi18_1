@@ -186,33 +186,33 @@ int main(int argc, char** argv)
 
   while(ros::ok()){
 		current_time = ros::Time::now();
-		// global_path_received = true;
+		global_path_received = true;
     if(!laser_data.ranges.empty() && pose_received && global_path_received){
       Dynamic_window dw = calc_dynamic_window(robot,model);
       //std::cout << "calc dynamic window" << std::endl;
 
-      goal = calc_goal(global_path,current_position);
-      // goal.x = 0;
-      // goal.y = 4.5;
-			// goal.yaw =0.0;
-			// double dx = goal.x-current_position.pose.position.x;
-			// double dy = goal.y-current_position.pose.position.y;
-			// if(sqrt(dx*dx+dy*dy)<0.5){
-			//  	achieved_goal = true;
-			// }
-			// goal_calculated = true;
+      // goal = calc_goal(global_path,current_position);
+      goal.x = 0;
+      goal.y = 4.5;
+	  goal.yaw =0.0;
+	  double dx = goal.x-current_position.pose.position.x;
+	  double dy = goal.y-current_position.pose.position.y;
+	  if(sqrt(dx*dx+dy*dy)<0.3){
+		achieved_goal = true;
+	  }
+	  goal_calculated = true;
 			
 	    //std::cout << "calc goal" << std::endl;
 			if(goal_calculated){
-				if(achieved_goal){
-					local_goal.pose.position.x = global_path.poses[global_path.poses.size()-1].pose.position.x;
-					local_goal.pose.position.y = global_path.poses[global_path.poses.size()-1].pose.position.y;
-					local_goal.pose.orientation = global_path.poses[global_path.poses.size()-1].pose.orientation;
-				}else{
+				// if(achieved_goal){
+				// 	local_goal.pose.position.x = global_path.poses[global_path.poses.size()-1].pose.position.x;
+				// 	local_goal.pose.position.y = global_path.poses[global_path.poses.size()-1].pose.position.y;
+				// 	local_goal.pose.orientation = global_path.poses[global_path.poses.size()-1].pose.orientation;
+				// }else{
 	    		local_goal.pose.position.x = goal.x;
         	local_goal.pose.position.y = goal.y;
         	local_goal.pose.orientation = tf::createQuaternionMsgFromYaw(goal.yaw);
-				}
+				// }
 				local_goal_pub.publish(local_goal);
         //std::cout << local_goal  << std::endl;
 
